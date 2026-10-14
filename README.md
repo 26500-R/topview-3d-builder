@@ -27,7 +27,7 @@
 </p>
 
 <p align="center">
-  <video src="docs/assets/hero.mp4" width="100%" controls muted playsinline></video>
+  <video src="https://github.com/user-attachments/assets/0abab696-3d30-4b5e-9187-6918f5d433e9" width="100%" controls muted playsinline></video>
 </p>
 
 <p align="center"><sub>Build the scene, place the cameras, plan the camera move in Studio, then get the shot.</sub></p>
@@ -124,22 +124,22 @@ Left is the 3D scene you build. Right is the video generated from it: **the way 
     <th width="50%" align="center">Generated video</th>
   </tr>
   <tr>
-    <td align="center"><video src="docs/assets/examples/dragon-scene.mp4" width="100%" controls muted playsinline></video></td>
-    <td align="center"><video src="docs/assets/examples/dragon-video.mp4" width="100%" controls muted playsinline></video></td>
+    <td align="center"><video src="https://github.com/user-attachments/assets/a8d96386-3908-43c7-bf44-42256995714b" width="100%" controls muted playsinline></video></td>
+    <td align="center"><video src="https://github.com/user-attachments/assets/53dc49f2-5e3a-4519-9af7-cd152ad3aaf4" width="100%" controls muted playsinline></video></td>
   </tr>
   <tr>
     <td colspan="2"><b>prompt：</b> A rider flies a dragon over a castle. The camera starts just behind and above them, looking forward over the wings at the towers. Over eight seconds it follows the flight as the dragon clears the castle and heads out over the hills.</td>
   </tr>
   <tr>
-    <td align="center"><video src="docs/assets/examples/coffee-scene.mp4" width="100%" controls muted playsinline></video></td>
-    <td align="center"><video src="docs/assets/examples/coffee-video.mp4" width="100%" controls muted playsinline></video></td>
+    <td align="center"><video src="https://github.com/user-attachments/assets/04bb3fa8-98fa-40bf-89f3-8caeb621958d" width="100%" controls muted playsinline></video></td>
+    <td align="center"><video src="https://github.com/user-attachments/assets/6d5feedb-e532-4840-b25d-2776f934d512" width="100%" controls muted playsinline></video></td>
   </tr>
   <tr>
     <td colspan="2"><b>prompt：</b> One person pours from a pitcher into a cup on a café counter. The camera starts wide across the counter, then pushes in and rises to a top-down close-up of the pour over eight seconds.</td>
   </tr>
   <tr>
-    <td align="center"><video src="docs/assets/examples/basketball-scene.mp4" width="100%" controls muted playsinline></video></td>
-    <td align="center"><video src="docs/assets/examples/basketball-video.mp4" width="100%" controls muted playsinline></video></td>
+    <td align="center"><video src="https://github.com/user-attachments/assets/bc00daca-e8e6-469b-a3a2-cf34b6395826" width="100%" controls muted playsinline></video></td>
+    <td align="center"><video src="https://github.com/user-attachments/assets/955dae4e-dc87-4448-9f4d-219789dc441f" width="100%" controls muted playsinline></video></td>
   </tr>
   <tr>
     <td colspan="2"><b>prompt：</b> A player jumps and shoots at a hoop. The camera starts low beside them, then rises and pushes in toward the basket, finishing above the rim and looking down over eight seconds.</td>
@@ -155,8 +155,8 @@ Left is the 3D scene you build. Right is the video generated from it: **the way 
     <th width="50%" align="center">Generated video</th>
   </tr>
   <tr>
-    <td align="center"><video src="docs/assets/examples/bicycle-scene.mp4" width="100%" controls muted playsinline></video></td>
-    <td align="center"><video src="docs/assets/examples/bicycle-video.mp4" width="100%" controls muted playsinline></video></td>
+    <td align="center"><video src="https://github.com/user-attachments/assets/32e485e7-7a25-4036-bce3-afb634669c1c" width="100%" controls muted playsinline></video></td>
+    <td align="center"><video src="https://github.com/user-attachments/assets/d6076569-dc82-44e1-97ac-df7a57cdcfd8" width="100%" controls muted playsinline></video></td>
   </tr>
   <tr>
     <td colspan="2"><b>prompt：</b> A person rides a bicycle along a city street. The camera starts level and tracks alongside, then rises and pulls back to a high angle looking down the street over eight seconds.</td>
