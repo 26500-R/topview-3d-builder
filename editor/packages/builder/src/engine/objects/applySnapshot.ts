@@ -53,39 +53,49 @@ export function applyMotionAndPose(graph: StageGraph, snapshot: FrameSnapshot): 
     if (playing.has(id)) {
       // 当前帧有动作片段则播动作；姿势只在无片段覆盖时生效（与时间轴提示一致）。
       ch.inner.position.set(0, 0, 0)
+      ch.poseCache = null
       continue
     }
-    if (graph.poseJointBusy?.() && graph.poseJointNodeId?.() === id) continue
+    if (graph.poseJointBusy?.() && graph.poseJointNodeId?.() === id) {
+      ch.poseCache = null
+      continue
+    }
     // 拖 gizmo 时根朝向已是对的：不要按已旋转的根重算姿势库世界增量，
     // 只保留上一帧姿势，让 gizmo 整棵转。
-    if (skipGizmoNode(graph, id)) continue
+    if (skipGizmoNode(graph, id)) {
+      ch.poseCache = null
+      continue
+    }
     ch.animator.stopAll()
     // 只看 mode，不再要求 controlValues 非空：空值也要走 pose 分支，applyPose 会把
     // 骨架复位到基准姿态（载入时捕获的 restPose；
     // 内置人物为 T-pose，与新角色默认 tpose 一致），新角色和「重置」后
     // 姿势能立即正确显示，而不是停在上一帧的残影。rootPositionOffset 同理，空值归零。
     if (anim?.mode === 'pose') {
-      // 姿势库 D 是世界系增量。根上若已有路径 yaw，D·W_rest 与 yaw 不对易，姿势会拧。
-      // 先在单位朝向上采样，再由 applyRootTransforms 套切线 / 关键帧根旋转（与 gizmo 同序）。
-      ch.root.quaternion.identity()
-      ch.root.rotation.set(0, 0, 0)
-      ch.root.updateMatrixWorld(true)
-      applyPose(
-        ch.root,
-        ch.restPose,
-        anim.controlValues ?? {},
-        ch.rig === 'ual1' ? ual1PoseName : undefined,
-        (() => {
-          const pose = graph.poseBank.get(anim.posePresetId)
-          return pose?.bonesLoaded ? pose.bones : undefined
-        })(),
-      )
-      for (const [key, value] of Object.entries(anim.controlValues ?? {})) {
-        const match = /^joint:(.+):(x|y|z)$/.exec(key)
-        if (!match) continue
-        const bone = ch.root.getObjectByName(match[1])
-        if (!bone) continue
-        bone.rotation[match[2] as 'x' | 'y' | 'z'] = D2R(value)
+      const preset = graph.poseBank.get(anim.posePresetId)
+      const bones = preset?.bonesLoaded ? preset.bones : undefined
+      const sig = poseSignature(ch.root, anim)
+      if (ch.poseCache?.sig !== sig || ch.poseCache.bones !== bones) {
+        // 姿势库 D 是世界系增量。根上若已有路径 yaw，D·W_rest 与 yaw 不对易，姿势会拧。
+        // 先在单位朝向上采样，再由 applyRootTransforms 套切线 / 关键帧根旋转（与 gizmo 同序）。
+        ch.root.quaternion.identity()
+        ch.root.rotation.set(0, 0, 0)
+        ch.root.updateMatrixWorld(true)
+        applyPose(
+          ch.root,
+          ch.restPose,
+          anim.controlValues ?? {},
+          ch.rig === 'ual1' ? ual1PoseName : undefined,
+          bones,
+        )
+        for (const [key, value] of Object.entries(anim.controlValues ?? {})) {
+          const match = /^joint:(.+):(x|y|z)$/.exec(key)
+          if (!match) continue
+          const bone = ch.root.getObjectByName(match[1])
+          if (!bone) continue
+          bone.rotation[match[2] as 'x' | 'y' | 'z'] = D2R(value)
+        }
+        ch.poseCache = { sig, bones }
       }
       // 坐 / 蹲 / 跪的骨架根下沉。挂在 inner 上而不是 root：root.position 每帧被
       // 求值结果覆盖，写这里等于 applyRootPositionOffset，节点坐标保持干净。
@@ -95,10 +105,20 @@ export function applyMotionAndPose(graph: StageGraph, snapshot: FrameSnapshot): 
       ch.inner.position.set((off?.x ?? 0) * scale, (off?.y ?? 0) * scale, (off?.z ?? 0) * scale)
     } else {
       ch.inner.position.set(0, 0, 0)
+      ch.poseCache = null
     }
   }
   // 播片段 / 关节拖拽 / gizmo 三条 continue 也改过骨骼，统一在收尾清一次。
   for (const [, ch] of graph.characters) clearSkinnedRaycastBounds(ch.inner)
+}
+
+// applyPose 在世界系里解算，根的缩放会影响结果；根的位置和朝向在解算前已归零，不参与。
+function poseSignature(
+  root: THREE.Object3D,
+  anim: { posePresetId?: string; controlValues?: Record<string, number>; rootPositionOffset?: unknown },
+): string {
+  const s = root.scale
+  return JSON.stringify([anim.posePresetId ?? null, anim.controlValues ?? null, anim.rootPositionOffset ?? null, s.x, s.y, s.z])
 }
 
 function skipGizmoNode(graph: StageGraph, id: string): boolean {

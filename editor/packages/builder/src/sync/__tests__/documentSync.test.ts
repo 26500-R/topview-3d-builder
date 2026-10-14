@@ -23,6 +23,8 @@ function engineStub(): DirectorEngine {
     setFcurves() {},
     pause() {},
     play() {},
+    startAmbient() {},
+    stopAmbient() {},
     removeNode() {},
     hasNode() { return false },
     addRuntimeNode: async () => undefined,
@@ -177,5 +179,58 @@ test('hydrating 时改节点 id 不 addRuntimeNode', async () => {
   model.touch()
   await Promise.resolve()
   assert.equal(added.length, 0)
+  sync.dispose()
+})
+
+test('时间轴面板打开后预览不再自行循环，关掉后恢复', () => {
+  let ambientStarts = 0
+  let ambientStops = 0
+  const engine = {
+    ...engineStub(),
+    startAmbient() { ambientStarts += 1 },
+    stopAmbient() { ambientStops += 1 },
+  } as unknown as DirectorEngine
+  const editor = new EditorStore('sync-ambient')
+  const session = new StudioSession(
+    engine,
+    new DirectorDoc(),
+    editor,
+    new History(),
+    {} as HostAdapter<DirectorDocument>,
+  )
+  const sync = new DocumentSync(session)
+  assert.equal(ambientStarts, 1)
+  assert.equal(ambientStops, 0)
+
+  editor.toggleTimelinePanel()
+  assert.equal(ambientStops, 1)
+
+  editor.toggleTimelinePanel()
+  assert.equal(ambientStarts, 2)
+  sync.dispose()
+})
+
+test('时间轴打开后点播放会驱动引擎', () => {
+  const calls: string[] = []
+  const engine = {
+    ...engineStub(),
+    play() { calls.push('play') },
+    pause() { calls.push('pause') },
+    startAmbient() { calls.push('startAmbient') },
+    stopAmbient() { calls.push('stopAmbient') },
+  } as unknown as DirectorEngine
+  const editor = new EditorStore('sync-timeline-play')
+  const session = new StudioSession(
+    engine,
+    new DirectorDoc(),
+    editor,
+    new History(),
+    {} as HostAdapter<DirectorDocument>,
+  )
+  const sync = new DocumentSync(session)
+  editor.toggleTimelinePanel()
+  calls.length = 0
+  editor.setPlaying(true)
+  assert.deepEqual(calls, ['stopAmbient', 'play'])
   sync.dispose()
 })

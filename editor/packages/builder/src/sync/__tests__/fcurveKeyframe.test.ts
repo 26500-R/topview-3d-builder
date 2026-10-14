@@ -321,9 +321,9 @@ test('setTransformKeysInterpAtFrame：组合关键帧统一设置各通道插值
   assert.equal(model.userKeys.actor?.scale?.[0]?.interpolation, 'ease-in')
 
   s.undo()
-  assert.equal(model.userKeys.actor?.position?.[0]?.interpolation, 'linear')
-  assert.equal(model.userKeys.actor?.rotation?.[0]?.interpolation, 'linear')
-  assert.equal(model.userKeys.actor?.scale?.[0]?.interpolation, 'linear')
+  assert.equal(model.userKeys.actor?.position?.[0]?.interpolation, 'ease-in-out')
+  assert.equal(model.userKeys.actor?.rotation?.[0]?.interpolation, 'ease-in-out')
+  assert.equal(model.userKeys.actor?.scale?.[0]?.interpolation, 'ease-in-out')
 })
 
 test('moveKeyframes 移动组合关键帧时自动更新当前 transformKeyframe 选中态', () => {

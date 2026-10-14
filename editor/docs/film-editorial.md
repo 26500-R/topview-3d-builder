@@ -130,7 +130,7 @@ Review 和写代码时按编号引用。任何改动都不得破坏这几条。
 | **I3** | `activeSequenceId` 必须命中某条 `sequences[].id`。删除 active 版本时，必须在**同一个文档事务**里把它切到相邻版本 |
 | **I4** | `clip.sourceFrameEnd >= clip.sourceFrameStart`，两者都是整数 |
 | **I5** | `[sourceFrameStart, sourceFrameEnd]` 必须落在 `[timeline.frameStart, timeline.frameEnd]` 内 |
-| **I6** | `clip.cameraNodeId` 指向的节点存在且 `type === 'camera'`；相机被删后 clip **保留 dangling 引用**（见 §7.3） |
+| **I6** | `clip.cameraNodeId` 指向的节点存在且 `type === 'camera'`；相机被删时引用它的 clip **随之删除**（见 §7.3） |
 | **I7** | 成片顺序只由 `clips` 数组顺序决定，没有第二处排序来源 |
 | **I8** | 剪辑操作只写 `content.editorial`，绝不写 `content.timeline` / `content.nodes` |
 | **I9** | 一次用户操作 = 一条文档事务 = 一条 Undo（拖拽全过程只入栈一次，见 §8） |
@@ -307,14 +307,17 @@ validateEditorial(doc, {
 
 `playbackIssues(doc, sequenceId)` = `validateEditorial(doc, { sequenceId, requireClips: true })` 去掉 `active-sequence-missing`。**它是播放按钮禁用态和导出前置检查的唯一判据。**
 
-### 7.3 修复策略：只报告，不自动改
+### 7.3 修复策略：失效相机自动清，其余只报告
 
-**这条是硬规则。** 失效相机、越界区间、坏 active 指针一律保留原样 + 结构化报告，因为：
+**失效相机**：相机删了，引用它的 clip 没有任何可播内容，留着只会在剪辑面板里报错、挡住播放和导出。
+所以会话层负责清掉它们，纯函数层 `validateEditorial` / 写操作不变（仍然只报告、拒绝写入失效相机）：
 
-- 用户删相机常常是误操作，dangling 引用保住了「撤销删除」和「换个机位」两条恢复路径；自动删 clip 会把用户的剪辑决定一起吃掉。
-- 自动夹紧越界区间会在 `timeline.frameEnd` 变短又改回来时静默改写用户入出点。
+- 删除节点（`StudioSession.deleteNodes`）在**同一个文档事务**里调用 `pruneMissingCameraClips(doc)`，撤销删除时相机和 clip 一起回来。
+- 载入 / 整体替换文档（`StudioSession.setDoc`，含 Agent 回写）时也清一次，兜住已经带 dangling 引用的旧草稿。
+- 被删 clip 若正被选中、正在新建，或剪辑面板正看着被删的相机，这些编辑态一并清掉。
 
-UI 的处理方式是：标红该 clip、禁用该版本的播放与导出、把 issue 文案本地化后展示。Agent 侧同理——**报错让人决策，不要替人修数据**。
+**越界区间、坏 active 指针**：仍然只报告，不自动改。自动夹紧越界区间会在 `timeline.frameEnd` 变短又改回来时静默改写用户入出点。
+UI 标红该 clip、禁用该版本的播放与导出、把 issue 文案本地化后展示。Agent 侧同理——**报错让人决策，不要替人修数据**。
 
 ---
 
@@ -422,7 +425,7 @@ if (issues.length) throw new Error(issues.map((i) => i.message).join('\n'))
 |---|---|
 | 在 `editorial` 里存秒数 / 时长 / 成片起点 | 源数据一改就不一致（§2.2） |
 | 用 `cameraMotionClips` 表达镜头顺序 | 污染源世界，多版本剪辑直接不成立 |
-| 自动删除 dangling clip / 自动夹紧越界区间 | 静默吞掉用户决定（§7.3） |
+| 自动夹紧越界区间 | 静默吞掉用户决定（§7.3） |
 | 播放 / 导出隐式用 `activeSequenceId` | 导出到错误版本（I10） |
 | 拖拽过程中每帧写文档 | Undo 栈被拖拽噪声灌满（I9） |
 | 直接 `setState` 改 clip 字段绕过 ops | 绕过唯一性与范围校验，脏数据落盘 |

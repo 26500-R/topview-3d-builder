@@ -25,6 +25,7 @@ if (!stylesOnly) {
 
 const styleDir = path.join(__dirname, '..', 'src', 'styles')
 const styleFiles = [
+  'fonts.css',
   'tokens.css',
   'base.css',
   'layout.css',
@@ -40,6 +41,7 @@ const styleFiles = [
 ]
 const css = styleFiles.map((name) => fs.readFileSync(path.join(styleDir, name), 'utf8')).join('\n')
 fs.writeFileSync(path.join(distDir, 'styles.css'), css)
+copyStyleFonts()
 
 // Draco decoder shipped with three, so hosts serve it same-origin instead of a CDN.
 const dracoSource = path.join(__dirname, '..', 'node_modules/three/examples/jsm/libs/draco')
@@ -53,6 +55,17 @@ for (const file of ['draco_decoder.js', 'draco_decoder.wasm', 'draco_wasm_wrappe
 // 若重构途中仍有代码 import 旧路径，webpack 会静默解析到过时实现且不报错。
 if (process.argv.includes('--prune')) {
   pruneOrphanArtifacts()
+}
+
+function copyStyleFonts() {
+  const fontSrcDir = path.join(styleDir, 'fonts')
+  if (!fs.existsSync(fontSrcDir)) return
+  const fontDistDir = path.join(distDir, 'fonts')
+  fs.mkdirSync(fontDistDir, { recursive: true })
+  for (const name of fs.readdirSync(fontSrcDir)) {
+    if (!/\.(woff2|txt)$/.test(name)) continue
+    fs.copyFileSync(path.join(fontSrcDir, name), path.join(fontDistDir, name))
+  }
 }
 
 function listFiles(dir, matches, acc = []) {

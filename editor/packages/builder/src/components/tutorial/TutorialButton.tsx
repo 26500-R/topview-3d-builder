@@ -1,7 +1,6 @@
-import { useT } from '../../locale'
+import { useLocale, useT } from '../../locale'
 import { Tooltip } from '../common/Tooltip'
-import { TutorialOverlay } from './TutorialOverlay'
-import { useTutorialTour } from './hooks/useTutorialTour'
+import { buildTutorialUrl } from './utils'
 
 export function TutorialGlyph() {
   return (
@@ -27,38 +26,19 @@ export function TutorialGlyph() {
 
 export function TutorialButton({ disabled }: { disabled?: boolean }) {
   const t = useT()
-  const tour = useTutorialTour()
+  const locale = useLocale()
 
   return (
-    <>
-      <Tooltip label={t('tutorial.title')}>
-        <button
-          type="button"
-          className="t3d-topbar-icon-btn"
-          aria-label={t('tutorial.title')}
-          aria-pressed={tour.open}
-          disabled={disabled}
-          onClick={(event) => (tour.open ? tour.stop() : tour.start(event.currentTarget))}
-        >
-          <TutorialGlyph />
-        </button>
-      </Tooltip>
-      {tour.open && tour.step ? (
-        <TutorialOverlay
-          stepIndex={tour.stepIndex}
-          stepCount={tour.steps.length}
-          title={t(tour.step.titleKey)}
-          body={t(tour.step.bodyKey)}
-          isFirst={tour.isFirst}
-          isLast={tour.isLast}
-          onClose={tour.stop}
-          onPrev={tour.prev}
-          onNext={tour.next}
-          onJump={tour.goTo}
-          anchorId={tour.step.id}
-          side={tour.step.side}
-        />
-      ) : null}
-    </>
+    <Tooltip label={t('tutorial.title')}>
+      <button
+        type="button"
+        className="t3d-topbar-icon-btn"
+        aria-label={t('tutorial.title')}
+        disabled={disabled}
+        onClick={() => window.open(buildTutorialUrl(locale), '_blank', 'noopener,noreferrer')}
+      >
+        <TutorialGlyph />
+      </button>
+    </Tooltip>
   )
 }

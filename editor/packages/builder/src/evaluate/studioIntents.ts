@@ -138,10 +138,14 @@ export function uniqueNodeName(doc: DirectorDocument, base: string): string {
   return candidate
 }
 
-export function nextIndexedId(existing: readonly string[], prefix: string): string {
-  let n = 1
-  while (existing.includes(`${prefix}${n}`)) n += 1
-  return `${prefix}${n}`
+/** 服务端会保留删掉节点的 ID，复用旧编号会撞上已删除实体，所以新 ID 一律随机。 */
+export function nextUniqueId(existing: readonly string[], prefix: string): string {
+  const taken = new Set(existing)
+  let candidate: string
+  do {
+    candidate = `${prefix}${Math.random().toString(36).slice(2, 10).padEnd(8, '0')}`
+  } while (taken.has(candidate))
+  return candidate
 }
 
 export function clampCameraFov(fov: number): number {
@@ -187,7 +191,7 @@ export function buildCharacterNode(
   const charCount = doc.content.nodes.filter((n) => n.type === 'character').length
   const id = intent.nodeId
     ? requireUnusedId(doc, intent.nodeId)
-    : nextIndexedId(allIds(doc), 'user_chr_')
+    : nextUniqueId(allIds(doc), 'user_chr_')
   return {
     id,
     type: 'character',
@@ -218,7 +222,7 @@ export function buildCharacterNode(
 export function buildPropNode(doc: DirectorDocument, intent: AddPropIntent): DraftNode {
   const id = intent.nodeId
     ? requireUnusedId(doc, intent.nodeId)
-    : nextIndexedId(allIds(doc), 'user_prop_')
+    : nextUniqueId(allIds(doc), 'user_prop_')
   return {
     id,
     type: 'prop',
@@ -243,7 +247,7 @@ export function buildCameraNode(doc: DirectorDocument, intent: AddCameraIntent):
   if (!preset) throw new StudioIntentError('preset-not-found', intent.presetId)
   const id = intent.nodeId
     ? requireUnusedId(doc, intent.nodeId)
-    : nextIndexedId(allIds(doc), 'user_cam_')
+    : nextUniqueId(allIds(doc), 'user_cam_')
   const node: DraftNode = {
     id,
     type: 'camera',
@@ -259,6 +263,7 @@ export function buildCameraNode(doc: DirectorDocument, intent: AddCameraIntent):
       projection: 'perspective',
       fov: preset.fov,
       fovAxis: 'vertical',
+      aspectRatio: doc.content.aspectRatio,
       near: 0.1,
       far: 2000,
       isPrimary: false,
@@ -316,7 +321,7 @@ export function appendMotionClip(doc: DirectorDocument, intent: AddMotionIntent)
   const frameEnd = frameStart + durationFrames
   const clipId = intent.clipId
     ? requireUnusedId(doc, intent.clipId)
-    : nextIndexedId(allIds(doc), 'user_mc_')
+    : nextUniqueId(allIds(doc), 'user_mc_')
   const assetId = intent.libraryId
   const clip: MotionClip = {
     id: clipId,

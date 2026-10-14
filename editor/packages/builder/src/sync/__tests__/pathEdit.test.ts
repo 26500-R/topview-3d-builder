@@ -244,6 +244,7 @@ for (const startFrame of [0, 90, 119]) {
     assert.equal(clip.frameEnd, 120)
     assert.equal(clip.pathStartPercent, 0)
     assert.equal(clip.pathEndPercent, 100)
+    assert.equal(clip.facing, 'path-tangent')
     assert.equal(clip.playback.baseDurationFrames, 120 - startFrame)
     const snapshot = createFrameSnapshot()
     prepareFrameSnapshot(snapshot, doc.content.nodes.map((node) => node.id))

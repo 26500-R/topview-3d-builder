@@ -38,7 +38,7 @@ export const PROP_LABEL: Record<TrackProp, string> = {
   rotation: '旋转',
   scale: '缩放',
   lookAt: '看点',
-  fov: 'FOV',
+  fov: '焦距',
 }
 
 export const FC_PROP_PATH: Record<TrackProp, string> = {

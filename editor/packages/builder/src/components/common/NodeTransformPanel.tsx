@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useRef, useState, useSyncExternalStore } from 'react'
 import { useDirector } from '../../bridge/DirectorContext'
 import type { Vec3 } from '../../contract/types'
 import { cameraMotionOwnsKeyframes } from '../../evaluate/camera/cameraMotionExclusive'
@@ -103,6 +103,7 @@ const TRANSFORM_KEY_PROPS: TrackProp[] = ['position', 'rotation', 'scale']
 /**
  * 「变换」标题栏：一次为该节点变换组全部维度打关键帧；已有则覆盖。机位含看点 / FOV。
  * 视口/对象树里多选时，这颗按钮给整批选中对象打键（一条 undo）。
+ * 路径没有用户关键帧通道，不渲染这颗按钮。
  */
 export function TransformKeyframeButton({ nodeId, locked }: { nodeId: string; locked: boolean }) {
   const t = useT()
@@ -113,7 +114,9 @@ export function TransformKeyframeButton({ nodeId, locked }: { nodeId: string; lo
   const addTransformKeyframes = useStore((s) => s.addTransformKeyframes)
   const frame = useThrottledFrame()
   const selectedIds = nodeIdsOf(selection)
-  const targets = selectedIds.length > 1 && selectedIds.includes(nodeId) ? selectedIds : [nodeId]
+  const rawTargets = selectedIds.length > 1 && selectedIds.includes(nodeId) ? selectedIds : [nodeId]
+  const targets = rawTargets.filter((id) => doc?.content.nodes.find((n) => n.id === id)?.type !== 'path')
+  if (targets.length === 0) return null
   const motionLocked = targets.every((id) => cameraMotionOwnsKeyframes(doc, id))
   const keyed = targets.every((id) => {
     const type = doc?.content.nodes.find((n) => n.id === id)?.type
@@ -137,6 +140,75 @@ export function TransformKeyframeButton({ nodeId, locked }: { nodeId: string; lo
         addTransformKeyframes(targets)
       }}
     />
+  )
+}
+
+function useGizmoPivot(): { x: number; y: number; z: number } | null {
+  const { stage } = useDirector()
+  const cache = useRef('')
+  const subscribe = useCallback((onChange: () => void) => {
+    const stopLive = stage.on('node:snapshot', onChange)
+    const stopFrame = stage.on('frame:throttled', onChange)
+    return () => { stopLive(); stopFrame() }
+  }, [stage])
+  const getSnapshot = useCallback(() => {
+    const pivot = stage.gizmoPivot()
+    const next = pivot
+      ? `${pivot.x.toFixed(3)},${pivot.y.toFixed(3)},${pivot.z.toFixed(3)}`
+      : ''
+    if (next === cache.current) return cache.current
+    cache.current = next
+    return next
+  }, [stage])
+  const raw = useSyncExternalStore(subscribe, getSnapshot, () => '')
+  if (!raw) return null
+  const [x, y, z] = raw.split(',').map(Number)
+  return { x, y, z }
+}
+
+/** 多选变换：坐标是当前操作轴，改一个轴会把所有未锁定对象平移同样的量。 */
+export function MultiTransformPanel({ nodeIds }: { nodeIds: string[] }) {
+  const t = useT()
+  const { useStore, stage } = useDirector()
+  const doc = useStore((s) => s.doc)
+  const commitNodeTransforms = useStore((s) => s.commitNodeTransforms)
+  const pivot = useGizmoPivot()
+  if (!doc || !pivot) return null
+  const locked = nodeIds.every((id) => doc.content.nodes.find((node) => node.id === id)?.locked)
+  const pos = pivot
+
+  const setPos = (axis: TransformAxis, value: number) => {
+    if (locked) return
+    const delta = value - pos[axis]
+    if (Math.abs(delta) < 1e-8) return
+    const frame = Math.round(stage.currentFrame)
+    const items = nodeIds.flatMap((id) => {
+      const node = doc.content.nodes.find((item) => item.id === id)
+      if (!node || node.locked) return []
+      const snap = stage.getNodeSnapshot(id)
+      const current = snap?.position?.length === 3
+        ? { x: snap.position[0], y: snap.position[1], z: snap.position[2] }
+        : node.transform.position
+      return [{
+        nodeId: id,
+        position: [current.x + (axis === 'x' ? delta : 0), current.y + (axis === 'y' ? delta : 0), current.z + (axis === 'z' ? delta : 0)],
+      }]
+    })
+    if (items.length === 0) return
+    commitNodeTransforms(frame, items)
+  }
+
+  return (
+    <div className="t3d-cam-xform">
+      <TransformGroup
+        label={t('inspector.staticPosition')}
+        value={pos}
+        step={0.1}
+        precision={1}
+        disabled={locked}
+        onAxis={setPos}
+      />
+    </div>
   )
 }
 

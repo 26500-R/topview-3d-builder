@@ -73,9 +73,10 @@ export function projectObjectToContainerRect(
   mesh: THREE.Object3D,
   camera: THREE.Camera,
   container: HTMLElement,
+  precise = false,
 ): ContainerScreenRect | null {
   mesh.updateMatrixWorld(true)
-  const box = new THREE.Box3().setFromObject(mesh)
+  const box = new THREE.Box3().setFromObject(mesh, precise)
   if (box.isEmpty()) return null
 
   const corners = [

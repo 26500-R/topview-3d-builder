@@ -20,8 +20,10 @@
 未必等于当前代码。要写代码时，当前形态以 `packages/builder/src/index.ts`（导出面）、
 `host/types.ts`（adapter 接口）为准，§4.4 记录了已发生的改名。
 
-**矩阵里标 `—` 不等于待办**：outline 描边已明确**取消**，不要去实现（相关条目下方
-有标注）。旋转 / 缩放 handle 与 two-bone IK 已解禁并落地，见 §12。其余未收敛项先问维护者。
+**矩阵里标 `—` 不等于待办**：`EffectComposer` / `OutlinePass` 后处理链已明确**取消**，不要去实现
+（相关条目下方有标注）。选中外轮廓线已由维护者要求以**独立的轻量 pass** 落地
+（`engine/core/SelectionOutline.ts`，不引入后处理链），见 §12。旋转 / 缩放 handle 与
+two-bone IK 已解禁并落地，见 §12。其余未收敛项先问维护者。
 
 ---
 
@@ -1426,7 +1428,7 @@ LAYER_RULES=target pnpm lint     # 与默认档相同（阶段 4.5 已合并）
 | 命令 + 撤销         | 命令式历史                                               | 部分：`History` + `SnapshotCommand`；`MAX_HISTORY=50` 从栈底丢弃；拖拽松手入一条；无 `Transaction` / revision                                                                                                               | 5.5                             |
 | 旋转 / 缩放 gizmo   | TransformGizmo                                           | ✓ `interact/UnifiedGizmo.ts` + `interact/gumball/`：移动 / 旋转 / 缩放三种 handle，支持多选与 Alt 拖拽复制                                                                                                                  | 已落地                          |
 | 指针仲裁            | GestureCoordinator                                       | — 无独立仲裁器；`UnifiedGizmo` capture 阶段拦 `pointerdown`，`ViewportNavigation` 让位                                                                                                                                       | **已取消**                      |
-| OutlinePass 描边    | Composer                                                 | —                                                                                                                                                                                                                           | **已取消**                      |
+| OutlinePass 描边    | Composer                                                 | ✓ `core/SelectionOutline.ts`：选中对象单独渲进遮罩再整屏描边（RGB 250,156,51，不受深度影响，与 gizmo 同显同隐）；**不是** OutlinePass，也没有 Composer 后处理链                                                              | 已落地（轻量 pass，Composer 仍取消） |
 | IK 求解             | IKSolver                                                 | 部分：`interact/joints/twoBoneIk.ts` 单肢两骨解算供视口摆姿；4 链 + pole + spine 求解器仍取消                                                                                                                               | 已落地（缩范围）                |
 | 事务 + revision     | Transaction                                              | —                                                                                                                                                                                                                           | 宿主接入时                      |
 

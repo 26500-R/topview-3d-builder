@@ -49,6 +49,7 @@ export {
   getActiveEditSequence,
   clipSequenceSpan,
   playbackIssues,
+  pruneMissingCameraClips,
   createSequence,
   renameSequence,
   duplicateSequence,

@@ -21,6 +21,7 @@ import {
   materializeEditorial,
   moveEditClip,
   playbackIssues,
+  pruneMissingCameraClips,
   renameSequence,
   updateEditClip,
 } from '../editSequenceOps'
@@ -257,7 +258,7 @@ test('换序、更新、查找与成片跨度', () => {
   assert.deepEqual(removed.editorial.sequences[0].clips.map((item) => item.id), ['c1', 'c2'])
 })
 
-test('写路径拒绝失效相机，已有 dangling 只报告不自动删除', () => {
+test('写路径拒绝失效相机，纯函数校验对已有 dangling 只报告', () => {
   const doc = withSequences([
     sequence('sequence_1', [clip('c1', 'gone_cam', 0, 4)]),
   ])
@@ -270,6 +271,21 @@ test('写路径拒绝失效相机，已有 dangling 只报告不自动删除', (
   }).ok, false)
   assert.equal(doc.content.editorial?.sequences[0].clips[0].id, 'c1')
   assert.ok(validateEditorial(doc).some((issue) => issue.code === 'missing-camera'))
+})
+
+test('pruneMissingCameraClips 只删失效相机的 clip，不改原文档', () => {
+  const doc = withSequences([
+    sequence('sequence_1', [clip('c1', 'camera_1', 0, 4), clip('c2', 'gone_cam', 5, 9)]),
+    sequence('sequence_2', [clip('c3', 'camera_1', 0, 4)]),
+  ])
+  const pruned = pruneMissingCameraClips(doc)
+  assert.ok(pruned)
+  assert.deepEqual(pruned.sequences[0].clips.map((item) => item.id), ['c1'])
+  assert.equal(pruned.sequences[1], doc.content.editorial?.sequences[1])
+  assert.equal(doc.content.editorial?.sequences[0].clips.length, 2)
+  doc.content.editorial = pruned
+  assert.equal(pruneMissingCameraClips(doc), null)
+  assert.equal(pruneMissingCameraClips(emptyDoc()), null)
 })
 
 test('时间轴收缩后越界 clip 只报告，不自动裁剪', () => {

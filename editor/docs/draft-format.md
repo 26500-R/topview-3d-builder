@@ -233,8 +233,9 @@
 | 字段 | 说明 |
 |---|---|
 | `camera.projection` | 本样本只有 `perspective` |
-| `camera.fov` | 垂直视角，度 |
+| `camera.fov` | 垂直视角，度。界面和时间轴按全画幅竖边 24 mm 换算成焦距（mm）显示，存盘仍是度 |
 | `camera.fovAxis` | 固定 `vertical` |
+| `camera.aspectRatio` | 可选。这台机位的画幅（如 `16:9` / `9:16` / `auto`），取景框、预览和导出按它出画面；缺省时沿用 `content.aspectRatio` |
 | `camera.lookAt` | 看点；定向以它为准，`transform.rotation` 是派生值 |
 | `camera.lookAtTarget` | 可选。看点绑到目标：`{ nodeId, offset? }`，求值时 lookAt = 目标位置 + offset（缺省胸口 1.2m）。手动旋转改变视线方向时解除，纯视线轴倾斜保留；移动机位、调整距离保留，显式编辑看点 XYZ 调整 offset。解除看向不关闭已有的 `subject.follow`；界面分别显示自由看点与位置跟随目标。 |
 | `camera.isPrimary` | 主相机。本样本只有 `camera_2` 为 true |
@@ -644,7 +645,7 @@ durationFrames = sourceFrameEnd - sourceFrameStart + 1
 
 - Zod 负责结构校验：剪辑域版本、非空 ID、非空白可选名称、整数帧、`sourceFrameEnd >= sourceFrameStart`，以及 `sequences` 至少一条。
 - `validateEditorial()` 负责领域校验：Sequence / Clip ID 唯一、active 指针有效、相机存在且类型正确、源帧不越界。它只报告结构化 issue，**不静默修复草稿**。
-- 删除相机后，引用它的 Clip 必须保留为 dangling `cameraNodeId`，以便撤销删除或替换机位；该 Clip 在 UI 中标记失效，并阻止相关 Sequence 播放和导出。
+- 删除相机时，引用它的 Clip 在同一个文档事务里一并删除（撤销删除时一起恢复）；载入带 dangling `cameraNodeId` 的草稿时也会清掉这些 Clip。
 - Undo / redo 必须把一次添加、裁剪、换序、复制、删除或 active 切换作为单个文档事务。
 - 平行 Sequence 是可同时存在和导出的成片版本；Undo、自动备份和历史修订属于宿主文档版本系统，禁止把 `revisions[]` 快照堆进 `editorial`。
 
@@ -658,7 +659,7 @@ schema v1 只支持每条 Sequence 的单个顺序 Clip 列表和硬切，不包
 - 版本 CRUD、clip 插入 / 更新 / 换序 / 复制 / 删除、以及 `activeSequenceId` 切换都是单条文档事务。
 - 播放与导出底层 API（`previewProgramFrame` / `recordSequence`）必须显式接收 `sequenceId`，不得隐式使用 `activeSequenceId`。
 - Program Monitor 求值指定源帧并临时跟随指定相机，不得改写 Scene 的 `currentFrame` 或 `activeCameraId`。
-- 失效相机、越界区间和坏 active 指针只报告，不自动删除、裁剪或修复。
+- 越界区间和坏 active 指针只报告，不自动裁剪或修复；失效相机的 Clip 按上一节自动删除。
 
 ## 8. 相机运动 `cameraMotionClips`
 

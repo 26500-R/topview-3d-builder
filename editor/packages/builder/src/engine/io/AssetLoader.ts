@@ -100,7 +100,7 @@ export class AssetLoader {
   async loadCharacterTemplate(url: string, onProgress?: (msg: string) => void): Promise<THREE.Object3D> {
     const cached = this.lookupCharacterTemplate(url)
     if (cached) return cached
-    onProgress?.(`加载角色模型 ${url.split('/').pop()}…`)
+    onProgress?.(`Loading character model: ${url.split('/').pop()}…`)
     const scene = await this.loadGltf(url)
     if (!storeLibraryCharacter(url, scene)) this.characterTemplates.set(instanceCacheKey(url), scene)
     this.usedCharacterTemplates.add(scene)
@@ -158,7 +158,7 @@ export class AssetLoader {
           console.warn(`[Stage] 动作加载失败 ${url}`, e)
         }
         done++
-        onProgress?.(`加载动作 ${done}/${assetIds.length}…`)
+        onProgress?.(`Loading motion: ${done}/${assetIds.length}…`)
       }),
     )
   }

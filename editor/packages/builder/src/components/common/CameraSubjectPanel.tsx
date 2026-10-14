@@ -4,7 +4,7 @@ import { useDirector } from '../../bridge/DirectorContext'
 import { useT } from '../../locale'
 import { isLookAtPickTarget } from '../../stores/nodeSelection'
 import { ToggleRow } from '../inspector/PosePanel'
-import { IconCrosshair } from '../leftrail/icons'
+import { IconAimPick } from '../leftrail/icons'
 import { displayNodeName } from '../displayNames'
 import { Dropdown } from './Dropdown'
 import { SliderNumberControl } from './SliderNumberControl'
@@ -63,17 +63,19 @@ export function CameraSubjectPanel({ cameraId }: { cameraId: string }) {
       {targets.length === 0 ? (
         <div className="t3d-camera-subject-hint">{t('library.noLookAtTargets')}</div>
       ) : (
-        <div className="t3d-cam-aim-target">
-          <span>{t('library.pickLookAt')}</span>
-          <Dropdown
-            ariaLabel={t('library.pickLookAt')}
-            value={personId}
-            options={[
-              { value: '', label: t('library.lookAtPoint') },
-              ...targets.map((c) => ({ value: c.id, label: displayNodeName(t, c) })),
-            ]}
-            onChange={(id) => setCameraLookAtTarget(cameraId, id || null)}
-          />
+        <>
+          <div className="t3d-cam-aim-target">
+            <span>{t('library.pickLookAt')}</span>
+            <Dropdown
+              ariaLabel={t('library.pickLookAt')}
+              value={personId}
+              options={[
+                { value: '', label: t('library.lookAtPoint') },
+                ...targets.map((c) => ({ value: c.id, label: displayNodeName(t, c) })),
+              ]}
+              onChange={(id) => setCameraLookAtTarget(cameraId, id || null)}
+            />
+          </div>
           <Tooltip label={t('help.lookAtPick')} side="top" variant="description">
             <button
               type="button"
@@ -81,11 +83,11 @@ export function CameraSubjectPanel({ cameraId }: { cameraId: string }) {
               aria-pressed={picking}
               onClick={() => (picking ? cancelLookAtPick() : beginLookAtPick(cameraId))}
             >
-              <IconCrosshair />
+              <IconAimPick />
               <span>{t('viewport.lookAt')}</span>
             </button>
           </Tooltip>
-        </div>
+        </>
       )}
       <TransformGroup
         label={t('timeline.lookAt')}

@@ -1,6 +1,7 @@
 import { computed, makeObservable, observable, runInAction } from 'mobx'
 import { previewClipMove } from '../document/clipMove'
 import { rippleResizeClip } from '../document/clipRipple'
+import { cameraNumericAspect } from '../contract/cameraAspect'
 import { normalizeAspectRatio, widthFromAspectHeight } from '../contract/aspectRatio'
 import type { DirectorDocument, DraftNode } from '../contract/types'
 import { makeEmptyDraft } from '../contract/emptyDraft'
@@ -45,7 +46,7 @@ import type {
   SaveState,
   WorkspaceMode,
 } from '../stores/types'
-import { buildNodeSelection, isLookAtPickTarget, isPathApplyPickTarget, isPathApplyTarget, isPathEditTarget, nodeIdsOf, unlockedNodeIds } from '../stores/nodeSelection'
+import { buildNodeSelection, isLookAtPickTarget, isPathApplyPickTarget, isPathApplyTarget, isPathEditTarget, isPlaceOnSupportPickTarget, nodeIdsOf, unlockedNodeIds } from '../stores/nodeSelection'
 import { clipRefsOf, keyframeRefsOf, makeKeyframeSelection, type ClipRef } from '../stores/types'
 import type { EditorStore } from '../stores/EditorStore'
 import type { StudioView } from '../stores/types'
@@ -69,6 +70,7 @@ import {
   type TransformEditPatch,
 } from './transformEdit'
 import { remapFrame } from '../evaluate/timecode'
+import { findEditClip, pruneMissingCameraClips } from '../evaluate/editSequenceOps'
 import {
   pathArcLength,
   pathClipDurationFrames,
@@ -217,6 +219,9 @@ export class StudioSession implements StudioView {
   get libraryTab(): LibraryTab {
     return this.editor.libraryTab
   }
+  get libraryFlash(): number {
+    return this.editor.libraryFlash
+  }
   get libraryContentWidth(): number {
     return this.editor.libraryContentWidth
   }
@@ -253,6 +258,9 @@ export class StudioSession implements StudioView {
   get cameraPilotId(): string | null {
     return this.editor.cameraPilotId
   }
+  get cameraPilotSaved(): { cameraId: string; savedAt: number } | null {
+    return this.editor.cameraPilotSaved
+  }
   get pathEditingId(): string | null {
     return this.editor.pathEditingId
   }
@@ -264,6 +272,9 @@ export class StudioSession implements StudioView {
   }
   get pathApplyPickingId(): string | null {
     return this.editor.pathApplyPickingId
+  }
+  get placeOnSupportPickingId(): string | null {
+    return this.editor.placeOnSupportPickingId
   }
   get gizmoMode(): GizmoMode {
     return this.editor.gizmoMode
@@ -319,8 +330,10 @@ export class StudioSession implements StudioView {
 
   toggleLibrary = (): void => this.editor.toggleLibrary()
   setLibraryTab = (t: LibraryTab): void => this.editor.setLibraryTab(t)
+  flashLibraryTab = (t: LibraryTab): void => this.editor.flashLibraryTab(t)
   setLibraryContentWidth = (w: number): void => this.editor.setLibraryContentWidth(w)
   toggleInspector = (): void => this.editor.toggleInspector()
+  openInspector = (): void => this.editor.openInspector()
   setInspectorContentWidth = (w: number): void => this.editor.setInspectorContentWidth(w)
   toggleTimeline = (): void => this.editor.toggleTimeline()
   toggleTimelinePanel = (): void => this.editor.toggleTimelinePanel()
@@ -337,7 +350,10 @@ export class StudioSession implements StudioView {
   }
   setLoadStatus = (s: string): void => this.editor.setLoadStatus(s)
   setReady = (b: boolean): void => this.editor.setReady(b)
-  setActiveCamera = (id: string): void => this.editor.setActiveCamera(id)
+  setActiveCamera = (id: string): void => {
+    this.editor.setActiveCamera(id)
+    if (this.editor.followMode) this.selectFollowedCamera()
+  }
   select = (selection: Selection | null): void => {
     const pickingId = this.editor.lookAtPickingId
     if (pickingId) {
@@ -358,6 +374,20 @@ export class StudioSession implements StudioView {
           const err = this.applyPathToTarget(pathPickId, selection.nodeId)
           if (!err) {
             this.editor.setPathApplyPickingId(null)
+            this.syncGizmoState()
+          }
+        }
+      }
+      return
+    }
+    const placeId = this.editor.placeOnSupportPickingId
+    if (placeId) {
+      if (selection?.kind === 'node') {
+        const node = this.docModel.snapshot?.content.nodes.find((candidate) => candidate.id === selection.nodeId)
+        if (isPlaceOnSupportPickTarget(node, placeId)) {
+          const err = this.placeNodeOnSupport(placeId, selection.nodeId)
+          if (!err) {
+            this.editor.setPlaceOnSupportPickingId(null)
             this.syncGizmoState()
           }
         }
@@ -431,7 +461,9 @@ export class StudioSession implements StudioView {
     if (mine) this.hydrating = true
     try {
       const previous = this.docModel.fcurves
-      this.docModel.replace(hydrateSkyColor(doc))
+      const hydrated = hydrateSkyColor(doc)
+      const editorial = pruneMissingCameraClips(hydrated)
+      this.docModel.replace(editorial ? { ...hydrated, content: { ...hydrated.content, editorial } } : hydrated)
       if (fcurves !== undefined) {
         if (fcurves instanceof FCurveSet) {
           this.docModel.setFcurves(fcurves)
@@ -556,8 +588,9 @@ export class StudioSession implements StudioView {
 
   /**
    * 多选打关键帧：每个节点按自身类型写变换通道（相机是 position/rotation/lookAt/fov，
-   * 其余是 position/rotation/scale），整批压成一条 undo。锁定节点跳过。
-   * 给了 props 就只写这些通道（时间轴单条子轨道的钻石），节点没有该通道时跳过。
+   * 其余是 position/rotation/scale），整批压成一条 undo。锁定节点与路径跳过
+   * （路径不走用户关键帧）。给了 props 就只写这些通道（时间轴单条子轨道的钻石），
+   * 节点没有该通道时跳过。
    */
   addTransformKeyframes = (nodeIds: readonly string[], props?: readonly TrackProp[]): void => {
     if (this.writeLocked) return
@@ -568,7 +601,7 @@ export class StudioSession implements StudioView {
 
     for (const id of targetIds) {
       const node = nodes.find((n) => n.id === id)
-      if (!node || node.locked) continue
+      if (!node || node.locked || node.type === 'path') continue
       const pendingItem = pending.find((p) => p.nodeId === id)
       let keys: { prop: TrackProp; value: number[] }[] = []
       if (pendingItem) {
@@ -1069,6 +1102,13 @@ export class StudioSession implements StudioView {
     nodeId: string,
     patch: { color?: string; showLabel?: boolean },
   ): string | null => this.writeLocked ? 'write-locked' : library.setObjectAppearance(this, nodeId, patch)
+  placeNodesOnGround = (nodeIds: readonly string[]): string | null => this.writeLocked
+    ? 'write-locked'
+    : library.placeNodesOnGround(this, nodeIds)
+  setNodesShowLabel = (
+    nodeIds: readonly string[],
+    showLabel: boolean,
+  ): string | null => this.writeLocked ? 'write-locked' : library.setNodesShowLabel(this, nodeIds, showLabel)
   applyFollowingCameraWorldPos = (
     cameraId: string,
     worldPos: { x: number; y: number; z: number },
@@ -1105,12 +1145,90 @@ export class StudioSession implements StudioView {
   get cameraMotionDragNoticeVersion(): number {
     return this.editor.cameraMotionDragNoticeVersion
   }
-  notifyCameraMotionDragBlocked = (): void => {
-    this.editor.notifyCameraMotionDragBlocked()
+  get cameraMotionDragCameraId(): string | null {
+    return this.editor.cameraMotionDragCameraId
+  }
+  notifyCameraMotionDragBlocked = (cameraId?: string): void => {
+    this.editor.notifyCameraMotionDragBlocked(cameraId)
+  }
+  dismissCameraMotionDragNotice = (): void => {
+    this.editor.dismissCameraMotionDragNotice()
+  }
+  /** 删掉该机位上的运镜片段，位置不再被预设盖住。 */
+  releaseCameraMotions = (cameraId: string): void => {
+    if (this.writeLocked) return
+    const live = this.docModel.toContract()
+    if (!live) return
+    const before = snapshotDocState(this.docModel)
+    if (!before) return
+    const anim = live.content.timeline.animation
+    const removed = anim.cameraMotionClips.filter((clip) => clip.target.nodeId === cameraId)
+    if (removed.length > 0) {
+      anim.cameraMotionClips = anim.cameraMotionClips.filter((clip) => clip.target.nodeId !== cameraId)
+      this.docModel.touch()
+      this.pushDocSnapshot('删除运镜', before)
+      const sel = this.editor.selection
+      if (sel?.kind === 'clip' && sel.clipType === 'camera' && removed.some((clip) => clip.id === sel.clipId)) {
+        this.editor.select({ kind: 'node', nodeId: cameraId, nodeIds: [cameraId] })
+      }
+    }
+    this.editor.dismissCameraMotionDragNotice()
+  }
+  get pathBindMoveNodeId(): string | null {
+    return this.editor.pathBindMoveNodeId
+  }
+  get pathBindMoveNoticeVersion(): number {
+    return this.editor.pathBindMoveNoticeVersion
+  }
+  notifyPathBindMoveBlocked = (nodeId: string): void => {
+    this.editor.notifyPathBindMoveBlocked(nodeId)
+  }
+  dismissPathBindMoveNotice = (): void => {
+    this.editor.dismissPathBindMoveNotice()
+  }
+  /** 去掉该对象上的用户轨迹片段，对象回到可直接移动的状态。 */
+  releasePathBinding = (nodeId: string): void => {
+    if (this.writeLocked) return
+    const live = this.docModel.toContract()
+    if (!live) return
+    const before = snapshotDocState(this.docModel)
+    if (!before) return
+    const anim = live.content.timeline.animation
+    const next = anim.pathMotionClips.filter(
+      (clip) => clip.target.nodeId !== nodeId || clip.lockedReason === 'derived-from-keyframes',
+    )
+    if (next.length !== anim.pathMotionClips.length) {
+      anim.pathMotionClips = next
+      this.docModel.touch()
+      this.pushDocSnapshot('解除轨迹绑定', before)
+    }
+    this.editor.dismissPathBindMoveNotice()
+  }
+  /** 绑定路径的相机：path-tangent 沿切线看，none 保持绑定前朝向。 */
+  setCameraPathFacing = (cameraId: string, facing: 'path-tangent' | 'none'): void => {
+    if (this.writeLocked) return
+    const live = this.docModel.toContract()
+    if (!live) return
+    const before = snapshotDocState(this.docModel)
+    if (!before) return
+    let changed = false
+    const anim = live.content.timeline.animation
+    anim.pathMotionClips = anim.pathMotionClips.map((clip) => {
+      if (clip.target.nodeId !== cameraId || clip.lockedReason === 'derived-from-keyframes') return clip
+      if (clip.facing === facing) return clip
+      changed = true
+      return { ...clip, facing }
+    })
+    if (!changed) return
+    this.docModel.touch()
+    this.pushDocSnapshot(facing === 'path-tangent' ? '朝向路径' : '原本方向', before)
   }
   setCameraFov = (fov: number, cameraId?: string): string | null => this.writeLocked
     ? 'write-locked'
     : library.setCameraFov(this, fov, cameraId)
+  setCameraAspectRatio = (cameraId: string, value: string): string | null => this.writeLocked
+    ? 'write-locked'
+    : library.setCameraAspectRatio(this, cameraId, value)
   renameNode = (nodeId: string, name: string): string | null => this.writeLocked
     ? 'write-locked'
     : library.renameNode(this, nodeId, name)
@@ -1257,6 +1375,15 @@ export class StudioSession implements StudioView {
     void this.trackUserWrite(this.ensurePoseThenApply(nodeId, presetId))
     return null
   }
+  applyPosePresets = (nodeIds: readonly string[], presetId: string): string | null => {
+    if (this.writeLocked) return 'write-locked'
+    void this.trackUserWrite(this.ensurePoseThenApplyMany(nodeIds, presetId))
+    return null
+  }
+  resetPoses = (nodeIds: readonly string[]): void => {
+    if (this.writeLocked) return
+    void this.trackUserWrite(this.ensurePoseThenResetMany(nodeIds))
+  }
 
   private poseApplySeq = 0
 
@@ -1278,6 +1405,26 @@ export class StudioSession implements StudioView {
     this.seekTo(this.engine.currentFrame)
     this.engine.invalidate()
   }
+
+  private async ensurePoseThenApplyMany(nodeIds: readonly string[], presetId: string): Promise<void> {
+    const seq = ++this.poseApplySeq
+    await ensurePoseBones(this.adapter, [presetId], this.engine.poseBank)
+    if (seq !== this.poseApplySeq) return
+    library.applyPosePresets(this, nodeIds, presetId)
+    this.seekTo(this.engine.currentFrame)
+    this.engine.invalidate()
+  }
+
+  private async ensurePoseThenResetMany(nodeIds: readonly string[]): Promise<void> {
+    const seq = ++this.poseApplySeq
+    const fallback = this.engine.poseBank.defaultId() ?? 't-pose'
+    await ensurePoseBones(this.adapter, [fallback], this.engine.poseBank)
+    if (seq !== this.poseApplySeq) return
+    library.resetPoses(this, nodeIds)
+    this.seekTo(this.engine.currentFrame)
+    this.engine.invalidate()
+  }
+
 
   private trackUserWrite<T>(write: Promise<T>): Promise<T> {
     this.pendingUserWrites.add(write)
@@ -1410,11 +1557,15 @@ export class StudioSession implements StudioView {
     if (!doc) return null
     const cameraId = this.editor.activeCameraId || doc.content.activeShotCameraNodeId
     if (!cameraId) return null
+    const cam = doc.content.nodes.find((node) => node.id === cameraId && node.type === 'camera')
     const height = 216
     return {
       cameraId,
       label: 'cover',
-      width: widthFromAspectHeight(height, this.engine.resolvedAspect()),
+      width: widthFromAspectHeight(
+        height,
+        cameraNumericAspect(cam?.camera, doc.content.aspectRatio, this.engine.viewportAspect()),
+      ),
       height,
       frame: this.engine.currentFrame,
       userKeys: this.userKeys,
@@ -1536,7 +1687,7 @@ export class StudioSession implements StudioView {
     const seq = ++this.loadSeq
     this.hydrating = true
     try {
-      this.editor.setLoadStatus('加载草稿…')
+      this.editor.setLoadStatus('Loading draft…')
       this.engine.reset()
       const nextDoc = await this.adapter.loadDocument(draftId)
       await ensurePoseBones(this.adapter, collectUsedPoseIds(nextDoc), this.engine.poseBank)
@@ -1569,7 +1720,7 @@ export class StudioSession implements StudioView {
       this.markSavedRevision(this.docModel.revision)
       this.editor.setSaveState('idle')
       this.editor.setReady(true)
-      this.editor.setLoadStatus('就绪')
+      this.editor.setLoadStatus('Ready')
     } finally {
       if (seq === this.loadSeq) {
         this.hydrating = false
@@ -1798,8 +1949,18 @@ export class StudioSession implements StudioView {
       this.editor.setLookAtPickingId(null)
       this.editor.setPathEditingIdFlag(null)
       this.engine.beginFollow()
+      this.selectFollowedCamera()
     } else this.engine.endFollow()
     this.syncGizmoState()
+  }
+
+  /** 机位视角下属性栏跟着正在看的那台相机走。 */
+  private selectFollowedCamera(): void {
+    const id = this.editor.activeCameraId
+    if (!id) return
+    const sel = this.editor.selection
+    if (sel?.kind === 'node' && sel.nodeId === id && nodeIdsOf(sel).length === 1) return
+    this.editor.select({ kind: 'node', nodeId: id, nodeIds: [id] })
   }
 
   setCameraPilot = (id: string | null): void => {
@@ -1837,11 +1998,12 @@ export class StudioSession implements StudioView {
     if (flown && node?.camera) {
       const liveLook = node.camera.lookAt
       const dist = Math.hypot(liveLook.x - node.transform.position.x, liveLook.y - node.transform.position.y, liveLook.z - node.transform.position.z) || 2
-      library.commitCameraPilotPose(this, id, flown.position, {
+      const error = library.commitCameraPilotPose(this, id, flown.position, {
         x: flown.position.x + flown.forward.x * dist,
         y: flown.position.y + flown.forward.y * dist,
         z: flown.position.z + flown.forward.z * dist,
       })
+      if (!error) this.editor.notifyCameraPilotSaved(id)
     }
     if (node) this.editor.select({ kind: 'node', nodeId: id, nodeIds: [id] })
     this.syncGizmoState()
@@ -1952,6 +2114,7 @@ export class StudioSession implements StudioView {
     this.editor.setPoseEditingId(null)
     this.editor.setPathEditingIdFlag(null)
     this.editor.setPathApplyPickingId(null)
+    this.editor.setPlaceOnSupportPickingId(null)
     this.editor.setLookAtPickingId(cameraId)
     this.syncGizmoState()
   }
@@ -1964,7 +2127,27 @@ export class StudioSession implements StudioView {
     this.editor.setPoseEditingId(null)
     this.editor.setPathEditingIdFlag(null)
     this.editor.setLookAtPickingId(null)
+    this.editor.setPlaceOnSupportPickingId(null)
     this.editor.setPathApplyPickingId(pathId)
+    this.syncGizmoState()
+  }
+
+  beginPlaceOnSupportPick = (nodeId: string): void => {
+    if (this.writeLocked) return
+    const node = this.docModel.snapshot?.content.nodes.find((n) => n.id === nodeId)
+    if (!node || node.locked) return
+    if (node.type !== 'character' && node.type !== 'prop' && node.type !== 'primitive') return
+    this.editor.setPoseEditingId(null)
+    this.editor.setPathEditingIdFlag(null)
+    this.editor.setLookAtPickingId(null)
+    this.editor.setPathApplyPickingId(null)
+    this.editor.setPlaceOnSupportPickingId(nodeId)
+    this.syncGizmoState()
+  }
+
+  cancelPlaceOnSupportPick = (): void => {
+    if (!this.editor.placeOnSupportPickingId) return
+    this.editor.setPlaceOnSupportPickingId(null)
     this.syncGizmoState()
   }
 
@@ -2248,6 +2431,8 @@ export class StudioSession implements StudioView {
       live.content.activeShotCameraNodeId =
         live.content.nodes.find((n) => n.type === 'camera')?.id ?? ''
     }
+    const editorial = pruneMissingCameraClips(live)
+    if (editorial) live.content.editorial = editorial
     for (const rid of ids) this.engine.removeNode(rid)
     const nextUserKeys = { ...this.docModel.userKeys }
     let ukChanged = false
@@ -2286,6 +2471,14 @@ export class StudioSession implements StudioView {
     this.pushDocSnapshot('删除节点', before)
     this.editor.setActiveCamera(nextActive)
     this.editor.setFollowModeFlag(nextFollow)
+    const filmSel = this.editor.filmSelection
+    if (filmSel && live.content.editorial && !findEditClip(live.content.editorial, filmSel.clipId)) {
+      this.editor.setFilmSelection(null)
+    }
+    const filmDraft = this.editor.filmAddDraft
+    if (filmDraft && ids.has(filmDraft.cameraNodeId)) this.editor.setFilmAddDraft(null)
+    const browseId = this.editor.filmBrowseCameraId
+    if (browseId && ids.has(browseId)) this.editor.setFilmBrowseCameraId(nextActive || null)
     if (sel?.kind === 'node') {
       this.editor.select(buildNodeSelection(nodeIdsOf(sel).filter((id) => !ids.has(id))))
     } else if (
@@ -2296,6 +2489,7 @@ export class StudioSession implements StudioView {
       this.editor.select(null)
     }
     this.syncGizmoState()
+    this.film.handleDocumentChange()
   }
 
   deleteClip = (clipType: 'camera' | 'motion' | 'path', clipId: string): void => {
@@ -2565,15 +2759,15 @@ export class StudioSession implements StudioView {
     const live = this.docModel.toContract()
     if (!live) return 'no-doc'
     const pathNode = live.content.nodes.find((n) => n.id === pathNodeId && n.type === 'path')
-    if (!pathNode?.path || pathNode.path.points.length < 2) return '路径不存在或点数不足'
+    if (!pathNode?.path || pathNode.path.points.length < 2) return 'The path is missing or has too few points'
     const target = live.content.nodes.find((n) => n.id === targetId && isPathApplyTarget(n))
-    if (!target) return '目标必须是角色、机位、道具或基础形状节点'
+    if (!target) return 'Select a character, camera, prop or primitive as the target'
     const tl = live.content.timeline
     const baseDurationFrames = pathClipDurationFrames(pathNode, tl.fps)
     const frameStart = Math.min(Math.max(Math.round(this.engine.currentFrame), tl.frameStart), tl.frameEnd - 1)
     const frameEnd = Math.min(frameStart + baseDurationFrames, tl.frameEnd)
     const span = frameEnd - frameStart
-    if (span <= 0) return '当前帧已到时间线末尾，无法生成走位片段'
+    if (span <= 0) return 'The playhead is at the end of the timeline. No path clip can be created.'
     const before = snapshotDocState(this.docModel)
     if (!before) return 'no-doc'
     const clip: PathMotionClip = {
@@ -2587,7 +2781,7 @@ export class StudioSession implements StudioView {
       // Timeline limits shorten the duration, not the spatial coverage.
       pathEndPercent: 100,
       direction: 'forward',
-      facing: target.type === 'camera' ? 'none' : 'path-tangent',
+      facing: 'path-tangent',
       playback: {
         version: 1,
         speed: 1,
@@ -2684,6 +2878,17 @@ export class StudioSession implements StudioView {
       for (const item of items) {
         const node = live.content.nodes.find((n) => n.id === item.nodeId)
         if (!node || node.locked) continue
+        if (node.type === 'camera' && cameraMotionOwnsKeyframes(this.docModel.snapshot, node.id)) {
+          const revision = this.docModel.revision
+          if (item.position && item.position.length >= 3) {
+            library.writeCameraWorldPos(this, item.nodeId, { x: item.position[0], y: item.position[1], z: item.position[2] }, false)
+          }
+          if (item.rotation && item.rotation.length >= 3) {
+            library.writeCameraRotation(this, item.nodeId, { x: item.rotation[0], y: item.rotation[1], z: item.rotation[2] }, false)
+          }
+          if (this.docModel.revision !== revision) persisted = true
+          continue
+        }
         const patch: TransformEditPatch = {
           position: item.position,
           rotation: item.rotation,
@@ -2833,6 +3038,13 @@ export class StudioSession implements StudioView {
       const path = this.docModel.snapshot?.content.nodes.find((item) => item.id === this.editor.pathApplyPickingId)
       if (!path || path.type !== 'path') this.editor.setPathApplyPickingId(null)
     }
+    if (this.editor.placeOnSupportPickingId) {
+      const mover = this.docModel.snapshot?.content.nodes.find((item) => item.id === this.editor.placeOnSupportPickingId)
+      const placeable = mover?.type === 'character' || mover?.type === 'prop' || mover?.type === 'primitive'
+      if (!mover || !placeable || mover.locked || mover.visible === false) {
+        this.editor.setPlaceOnSupportPickingId(null)
+      }
+    }
     const incoming = this.editor.selection
     if (incoming?.kind === 'node') {
       const picked = this.docModel.snapshot?.content.nodes.find((item) => item.id === incoming.nodeId)
@@ -2855,6 +3067,7 @@ export class StudioSession implements StudioView {
       || Boolean(this.editor.poseEditingId)
       || Boolean(this.editor.lookAtPickingId)
       || Boolean(this.editor.pathApplyPickingId)
+      || Boolean(this.editor.placeOnSupportPickingId)
       || Boolean(this.editor.cameraPilotId)
     this.engine.setPoseEditingId(this.editor.poseEditingId)
     this.engine.setPathEditing?.(this.editor.pathEditingId, this.editor.pathEditPointIndex)

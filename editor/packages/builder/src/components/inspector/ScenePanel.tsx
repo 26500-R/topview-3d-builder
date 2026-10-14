@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react'
 import { useDirector } from '../../bridge/DirectorContext'
+import { DEFAULT_GROUND_OPACITY } from '../../contract/groundOpacity'
 import { DEFAULT_SKY_COLOR } from '../../contract/skyColor'
 import { useT } from '../../locale'
 import { IconObject } from '../leftrail/icons'
@@ -15,7 +16,7 @@ export function ScenePanel(): ReactElement {
   const labels = env?.display.characterLabelsVisible !== false
   const ground = env?.display.groundVisible !== false
   const height = env?.display.groundHeight ?? 0
-  const opacity = env?.display.groundOpacity ?? 1
+  const opacity = env?.display.groundOpacity ?? DEFAULT_GROUND_OPACITY
 
   return (
     <div className="t3d-inspector">

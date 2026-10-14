@@ -1,5 +1,6 @@
 import { useDirector } from '../../bridge/DirectorContext'
 import type { FCurveSet } from '../../evaluate/curves/FCurveSet'
+import { fovToFocalLength } from '../../evaluate/camera/focalLength'
 import type { TrackProp, UserKeys } from '../../evaluate/curves/KeyframeTrack'
 import { useT } from '../../locale'
 import { nodeIdsOf } from '../../stores/nodeSelection'
@@ -357,7 +358,7 @@ export function TrackRow({
                       ? keyframesLockedHint
                       : t('timeline.userKey', {
                           frame: kf.frame,
-                          value: kf.value.map((v) => v.toFixed(2)).join(', '),
+                          value: formatTrackValue(row.prop, kf.value),
                           interpolation: kf.interpolation,
                         })
                   }
@@ -407,4 +408,9 @@ export function TrackRow({
       </div>
     </div>
   )
+}
+
+function formatTrackValue(prop: TrackProp | undefined, value: number[]): string {
+  if (prop === 'fov') return value.map((v) => fovToFocalLength(v).toFixed(1)).join(', ')
+  return value.map((v) => v.toFixed(2)).join(', ')
 }

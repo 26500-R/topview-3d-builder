@@ -72,19 +72,21 @@ export function TimelineRangeField({
   return (
     <label className="t3d-timeline-field t3d-timeline-field-range">
       {label}
-      <ScrubNumberInput
-        value={value}
-        min={min}
-        max={max}
-        step={step}
-        precision={precision}
-        fixed={fixed}
-        disabled={disabled}
-        onEditStart={onBegin}
-        onChange={onCommit}
-        onEditEnd={onEnd}
-      />
-      {unit ? <span className="t3d-timeline-field-unit">{unit}</span> : null}
+      <span className="t3d-timeline-field-value">
+        <ScrubNumberInput
+          value={value}
+          min={min}
+          max={max}
+          step={step}
+          precision={precision}
+          fixed={fixed}
+          disabled={disabled}
+          onEditStart={onBegin}
+          onChange={onCommit}
+          onEditEnd={onEnd}
+        />
+        {unit ? <span className="t3d-timeline-field-unit">{unit}</span> : null}
+      </span>
     </label>
   )
 }

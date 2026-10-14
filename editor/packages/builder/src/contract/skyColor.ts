@@ -1,9 +1,9 @@
 import type { DirectorDocument } from './types'
 
-/** 地面透明时透出的默认底色：RGB 30, 30, 30。 */
-export const DEFAULT_SKY_COLOR = '#1e1e1e'
+/** 地面透明时透出的默认底色：RGB 13, 13, 13。 */
+export const DEFAULT_SKY_COLOR = '#0d0d0d'
 /** 旧包默认底色。加载时换成当前默认，已改过的颜色不动。 */
-const LEGACY_DEFAULT_SKY_COLOR = '#060608'
+const LEGACY_DEFAULT_SKY_COLORS = new Set(['#060608', '#1e1e1e'])
 
 const HEX6 = /^#[0-9a-fA-F]{6}$/
 const HEX3 = /^#[0-9a-fA-F]{3}$/
@@ -35,7 +35,7 @@ export function isEmptyDirectorGenesis(nodes: unknown): boolean {
 
 export function resolveSkyColor(value: string | undefined, emptyGenesis: boolean): string {
   const normalized = normalizeSkyHex(value)
-  if (!normalized || normalized.toLowerCase() === LEGACY_DEFAULT_SKY_COLOR) return DEFAULT_SKY_COLOR
+  if (!normalized || LEGACY_DEFAULT_SKY_COLORS.has(normalized.toLowerCase())) return DEFAULT_SKY_COLOR
   if (emptyGenesis && isLeakedBrowserSkyColor(value ?? '')) return DEFAULT_SKY_COLOR
   return normalized
 }

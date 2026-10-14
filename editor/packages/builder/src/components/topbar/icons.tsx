@@ -1,6 +1,6 @@
 export function ExportGlyph() {
   return (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+    <svg width="23" height="23" viewBox="0 0 18 18" fill="none" aria-hidden="true">
       <path
         d="M6.25 5.25L7.125 4.0625C7.3374 3.77423 7.67418 3.60417 8.03222 3.60417H9.96778C10.3258 3.60417 10.6626 3.77423 10.875 4.0625L11.75 5.25H13.25C14.4926 5.25 15.5 6.25736 15.5 7.5V12.25C15.5 13.4926 14.4926 14.5 13.25 14.5H4.75C3.50736 14.5 2.5 13.4926 2.5 12.25V7.5C2.5 6.25736 3.50736 5.25 4.75 5.25H6.25Z"
         stroke="currentColor"

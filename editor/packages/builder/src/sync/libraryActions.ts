@@ -1,3 +1,4 @@
+import { normalizeAspectRatio } from '../contract/aspectRatio'
 import type { DirectorDocument, DraftNode, Vec3 } from '../contract/types'
 import { CAMERA_MOTIONS, CAMERA_PRESETS } from '../data/cameraLibrary'
 import {
@@ -7,10 +8,11 @@ import {
   buildCharacterNode,
   buildPropNode,
   clampCameraFov,
-  nextIndexedId,
+  nextUniqueId,
   uniqueNodeName,
   StudioIntentError,
 } from '../evaluate/studioIntents'
+import { POSE_PRESET_BY_ID } from '../data/posePresets'
 import { snapshotDocState, type DocSnapshotState } from '../document'
 import { FCurveSet } from '../evaluate/curves/FCurveSet'
 import {
@@ -21,7 +23,9 @@ import {
 } from '../evaluate/camera/bakeMotion'
 import { evaluateCameraPose } from '../evaluate/camera/CameraRig'
 import { lookDistance, manualCameraLookAt, sameCameraAim } from '../evaluate/camera/cameraAim'
-import { cameraMotionOwnsKeyframes } from '../evaluate/camera/cameraMotionExclusive'
+import { cameraMotionOwnsKeyframes, cameraPositionDragMoved } from '../evaluate/camera/cameraMotionExclusive'
+import { rebaseCameraMotionsToPosition, rotateCameraMotionsByAim, translateCameraMotionClips } from '../evaluate/camera/rebaseCameraMotion'
+import { positionMoved, userPathBindingAtFrame } from '../evaluate/path/pathBindMove'
 import { nodeHasAnimatedTransform, type StagedTransform } from '../evaluate/stagedTransform'
 import {
   characterLookAtPoint,
@@ -587,7 +591,49 @@ export function writeCameraWorldPos(
   if (!doc) return 'no-doc'
   const cam = doc.content.nodes.find((n) => n.id === cameraId && n.type === 'camera')
   if (!cam?.camera) return 'missing-camera'
+  const frame = Math.round(host.engine.currentFrame)
+  if (
+    commit
+    && positionMoved(cam.transform.position, worldPos)
+    && userPathBindingAtFrame(doc, cameraId, frame)
+  ) {
+    host.editor.notifyPathBindMoveBlocked(cameraId)
+  }
+  // 已有运镜时不再要求先删预设：整段曲线跟着新机位平移，运动方式不变。
+  if (cameraMotionOwnsKeyframes(doc, cameraId) && !cam.camera.subject?.follow) {
+    const before = commit ? snapshotDocState(host.docModel) : null
+    const rebased = rebaseCameraMotionsToPosition(doc, cam, worldPos, frame)
+    if (!rebased) return null
+    const binding = cam.camera.subject
+    if (binding) {
+      const subject = subjectPoseAtCurrentFrame(host, doc, binding.nodeId)
+      if (subject) {
+        const yawDeg = binding.followRotation ? subjectYawDeg(subject.rotation) : 0
+        binding.offset = subjectWorldToLocal(rebased.position, subject.position, yawDeg)
+        binding.distance = lookAtDistance(rebased.position, rebased.lookAt)
+      }
+    }
+    host.engine.applyLiveCameraPose(cameraId, rebased.position, rebased.lookAt, cam.transform.rotation)
+    host.docModel.touch()
+    if (commit && before) host.pushDocSnapshot('移动相机', before, `camera-pos:${cameraId}`)
+    return null
+  }
   const before = commit ? snapshotDocState(host.docModel) : null
+  if (cameraMotionOwnsKeyframes(doc, cameraId) && cam.camera.subject?.follow) {
+    const live = evaluateCameraPose(
+      cam,
+      doc.content.timeline.animation.cameraMotionClips,
+      frame,
+      doc.content.timeline.fps,
+    )
+    if (cameraPositionDragMoved(live.position, [worldPos.x, worldPos.y, worldPos.z])) {
+      translateCameraMotionClips(doc, cameraId, {
+        x: worldPos.x - live.position[0],
+        y: worldPos.y - live.position[1],
+        z: worldPos.z - live.position[2],
+      })
+    }
+  }
   const binding = cam.camera.subject
   if (binding?.follow) {
     const subject = subjectPoseAtCurrentFrame(host, doc, binding.nodeId)
@@ -738,7 +784,8 @@ export function writeCameraLookAt(
 
 /**
  * 按相机物体欧拉 XYZ（度）改朝向：位置不动，重算 lookAt，上机走 lookAt()。
- * 旋转和注视坐标联动，定向以注视点为准。
+ * 已有运镜时，视线变化会把整段轨迹绕当前机位转过去，相对朝向保持不变。
+ * 旋转和注视坐标联动，定向以注视点为准。滚转不改变视线。
  */
 export function writeCameraRotation(
   host: LibraryHost,
@@ -752,8 +799,20 @@ export function writeCameraRotation(
   if (!cam?.camera) return 'missing-camera'
   const before = commit ? snapshotDocState(host.docModel) : null
   const live = cameraPoseAtCurrentFrame(host, cam.id)
-  const pos = live?.position ?? cam.transform.position
-  const currentLook = live?.lookAt ?? cam.camera.lookAt
+  const motionOwns = cameraMotionOwnsKeyframes(doc, cameraId)
+  let pos = live?.position ?? cam.transform.position
+  let currentLook = live?.lookAt ?? cam.camera.lookAt
+  if (!live && motionOwns) {
+    const frame = Math.round(host.engine.currentFrame)
+    const sampled = evaluateCameraPose(
+      cam,
+      doc.content.timeline.animation.cameraMotionClips,
+      frame,
+      doc.content.timeline.fps,
+    )
+    pos = { x: sampled.position[0], y: sampled.position[1], z: sampled.position[2] }
+    currentLook = { x: sampled.lookAt[0], y: sampled.lookAt[1], z: sampled.lookAt[2] }
+  }
   const nextLook = manualCameraLookAt(pos, rotDeg, lookDistance(pos, currentLook))
   const keepsAim = currentLook && sameCameraAim(pos, currentLook, nextLook)
   const lookAt = keepsAim ? currentLook : nextLook
@@ -772,6 +831,25 @@ export function writeCameraRotation(
     if (!detached) return
     host.docModel.touch()
     if (commit && before) host.pushDocSnapshot('旋转相机', before, `camera-rot:${cameraId}`)
+  }
+  if (motionOwns) {
+    if (!keepsAim && currentLook) {
+      rotateCameraMotionsByAim(doc, cam, pos, currentLook, nextLook)
+    }
+    cam.transform.rotation = { x: rotDeg.x, y: rotDeg.y, z: rotDeg.z }
+    const followed = cam.camera.subject
+    if (followed?.follow && followedSubject) {
+      const yawDeg = followed.followRotation ? subjectYawDeg(followedSubject.rotation) : 0
+      followed.lookAtOffset = subjectWorldToLocal(lookAt, followedSubject.position, yawDeg)
+    }
+    host.engine.applyLiveCameraPose(cameraId, pos, lookAt, rotDeg)
+    if (autoKeyAlreadyPersisted(host, cameraId)) {
+      finishDetached()
+      return null
+    }
+    host.docModel.touch()
+    if (commit && before) host.pushDocSnapshot('旋转相机', before, `camera-rot:${cameraId}`)
+    return null
   }
   const binding = cam.camera.subject
   if (binding?.follow && followedSubject) {
@@ -813,6 +891,34 @@ export function writeCameraRotation(
   return null
 }
 
+/** 把该机位当前帧的运镜视线转到 `lookAt`。视线没变时不动文档。 */
+function alignOwnedCameraMotionAim(
+  doc: DirectorDocument,
+  cam: DraftNode,
+  frame: number,
+  lookAt: Vec3,
+): boolean {
+  const sampled = evaluateCameraPose(
+    cam,
+    doc.content.timeline.animation.cameraMotionClips,
+    frame,
+    doc.content.timeline.fps,
+  )
+  const pivot = { x: sampled.position[0], y: sampled.position[1], z: sampled.position[2] }
+  const fromLook = { x: sampled.lookAt[0], y: sampled.lookAt[1], z: sampled.lookAt[2] }
+  if (sameCameraAim(pivot, fromLook, lookAt)) return false
+  return rotateCameraMotionsByAim(doc, cam, pivot, fromLook, lookAt)
+}
+
+/** 操控里改过朝向后，路径走位不能再按切线把视线拧回去。 */
+function releaseCameraPathTangent(doc: DirectorDocument, cameraId: string): void {
+  const clips = doc.content.timeline.animation.pathMotionClips
+  if (!clips.some((clip) => clip.target.nodeId === cameraId && clip.facing !== 'none')) return
+  doc.content.timeline.animation.pathMotionClips = clips.map((clip) =>
+    clip.target.nodeId === cameraId && clip.facing !== 'none' ? { ...clip, facing: 'none' } : clip,
+  )
+}
+
 /**
  * 第一人称操控结束：把飞过的世界位置和视线写成一笔机位。
  * 跟随中的相机改相对偏移，避免下一帧求值弹回旧机位。
@@ -848,6 +954,49 @@ export function commitCameraPilotPose(
   } else if (cam.camera.lookAtTarget) {
     syncLookAtTargetOffset(host, cam, lookAt)
   }
+  // 已有运镜时整段跟着飞过的机位走：位置平移，朝向转到操控里最后的视线。
+  // 不能在退出后再用轨迹切线或「朝向路径」把这次朝向盖回去。
+  if (cameraMotionOwnsKeyframes(doc, cameraId) && !binding?.follow) {
+    const frame = Math.round(host.engine.currentFrame)
+    const moved = rebaseCameraMotionsToPosition(doc, cam, worldPos, frame) !== null
+    const aimed = alignOwnedCameraMotionAim(doc, cam, frame, lookAt)
+    if (aimed) releaseCameraPathTangent(doc, cameraId)
+    if (!moved && !aimed) return null
+    const after = evaluateCameraPose(
+      cam,
+      doc.content.timeline.animation.cameraMotionClips,
+      frame,
+      doc.content.timeline.fps,
+    )
+    const pose = {
+      position: { x: after.position[0], y: after.position[1], z: after.position[2] },
+      lookAt: { x: after.lookAt[0], y: after.lookAt[1], z: after.lookAt[2] },
+    }
+    host.engine.applyLiveCameraPose(cameraId, pose.position, pose.lookAt)
+    const liveRot = cameraPoseAtCurrentFrame(host, cameraId)?.rotation
+    if (liveRot) cam.transform.rotation = { ...liveRot }
+    if (autoKeyAlreadyPersisted(host, cameraId)) return null
+    host.docModel.touch()
+    host.pushDocSnapshot('操控相机', before, `camera-pilot:${cameraId}`)
+    return null
+  }
+  if (cameraMotionOwnsKeyframes(doc, cameraId) && binding?.follow) {
+    const frame = Math.round(host.engine.currentFrame)
+    const live = evaluateCameraPose(
+      cam,
+      doc.content.timeline.animation.cameraMotionClips,
+      frame,
+      doc.content.timeline.fps,
+    )
+    if (cameraPositionDragMoved(live.position, [worldPos.x, worldPos.y, worldPos.z])) {
+      translateCameraMotionClips(doc, cameraId, {
+        x: worldPos.x - live.position[0],
+        y: worldPos.y - live.position[1],
+        z: worldPos.z - live.position[2],
+      })
+    }
+    if (alignOwnedCameraMotionAim(doc, cam, frame, lookAt)) releaseCameraPathTangent(doc, cameraId)
+  }
   persistFreeCameraWorldPose(host, cam, worldPos, lookAt)
   if (autoKeyAlreadyPersisted(host, cameraId)) return null
   host.docModel.touch()
@@ -855,7 +1004,7 @@ export function commitCameraPilotPose(
   return null
 }
 
-/** 镜头视野（垂直 FOV，12–120°）。已有键则改键，否则写静态 fov，不自动打关键帧。 */
+/** 焦距（界面毫米，内部仍是垂直视角）。已有键则改键，否则写静态 fov，不自动打关键帧。 */
 export function setCameraFov(host: LibraryHost, fov: number, cameraId?: string): string | null {
   const doc = host.docModel.snapshot
   if (!doc) return 'no-doc'
@@ -870,7 +1019,24 @@ export function setCameraFov(host: LibraryHost, fov: number, cameraId?: string):
   persistCameraFov(host, cam, fov)
   if (autoKeyAlreadyPersisted(host, cam.id)) return null
   host.docModel.touch()
-  host.pushDocSnapshot('调整镜头视野', before, `fov:${cam.id}`)
+  host.pushDocSnapshot('调整焦距', before, `fov:${cam.id}`)
+  return null
+}
+
+/** 这台机位的画幅。导出和取景框都读这里。 */
+export function setCameraAspectRatio(host: LibraryHost, cameraId: string, value: string): string | null {
+  const doc = host.docModel.snapshot
+  if (!doc) return 'no-doc'
+  const cam = doc.content.nodes.find((n) => n.id === cameraId && n.type === 'camera')
+  if (!cam?.camera) return 'missing-camera'
+  const next = normalizeAspectRatio(value)
+  if (cam.camera.aspectRatio === next) return null
+  const before = snapshotDocState(host.docModel)
+  if (!before) return 'no-doc'
+  cam.camera.aspectRatio = next
+  host.docModel.touch()
+  host.pushDocSnapshot('更改机位画幅', before, `aspect:${cam.id}`)
+  host.engine.invalidate()
   return null
 }
 
@@ -980,24 +1146,31 @@ function currentWorldPos(
   }
 }
 
-function commitPlacedPosition(
+/**
+ * 把放置位置写进文档 / 引擎，但不碰撤销栈。
+ * 返回 `written` 表示改了文档，调用方负责 touch + pushDocSnapshot；
+ * `staged` / `pending` 走暂存或待定关键帧，不产生历史。
+ */
+function writePlacedPosition(
   host: LibraryHost,
+  doc: DirectorDocument,
   node: DraftNode,
   pos: { x: number; y: number; z: number },
-  label: string,
-): string | null {
-  const doc = host.docModel.snapshot
-  if (!doc) return 'no-doc'
+): 'staged' | 'pending' | 'written' {
+  if (
+    positionMoved(currentWorldPos(host, node), pos)
+    && userPathBindingAtFrame(doc, node.id, Math.round(host.engine.currentFrame))
+  ) {
+    host.editor.notifyPathBindMoveBlocked(node.id)
+  }
   if (shouldStageNode(host, node.id)) {
     host.engine.setStagedTransform(node.id, { position: pos })
     host.engine.applyLiveNodeTransform(node.id, { position: pos })
-    return null
+    return 'staged'
   }
-  const before = snapshotDocState(host.docModel)
-  if (!before) return 'no-doc'
   if (host.capturePendingTransform(node.id, { position: [pos.x, pos.y, pos.z] })) {
     host.engine.applyLiveNodeTransform(node.id, { position: pos })
-    return null
+    return 'pending'
   }
   node.transform.position = pos
   const frame = Math.round(host.engine.currentFrame)
@@ -1012,8 +1185,65 @@ function commitPlacedPosition(
   }
   host.docModel.setUserKeys(result.userKeys)
   host.engine.applyLiveNodeTransform(node.id, { position: pos })
-  host.docModel.touch()
-  host.pushDocSnapshot(label, before)
+  return 'written'
+}
+
+function commitPlacedPosition(
+  host: LibraryHost,
+  node: DraftNode,
+  pos: { x: number; y: number; z: number },
+  label: string,
+): string | null {
+  const doc = host.docModel.snapshot
+  if (!doc) return 'no-doc'
+  const before = snapshotDocState(host.docModel)
+  if (!before) return 'no-doc'
+  if (writePlacedPosition(host, doc, node, pos) === 'written') {
+    host.docModel.touch()
+    host.pushDocSnapshot(label, before)
+  }
+  return null
+}
+
+/**
+ * 多选一起放到地面：每个人物 / 道具 / 几何体各自落到地面（最低点贴地），一步撤销。
+ * 锁定的、不可放置的、已经在地面上的跳过；所选里一个能放的都没有才报错。
+ */
+export function placeNodesOnGround(host: LibraryHost, nodeIds: readonly string[]): string | null {
+  const doc = host.docModel.snapshot
+  if (!doc) return 'no-doc'
+  const groundY = doc.content.environment.display.groundHeight ?? 0
+  const moves: Array<{ node: DraftNode; pos: { x: number; y: number; z: number } }> = []
+  let eligible = 0
+  let lockedCount = 0
+  // 先量完所有人的触地点再动手，避免前一个移动影响后一个的包围盒。
+  for (const id of new Set(nodeIds)) {
+    const node = doc.content.nodes.find((n) => n.id === id)
+    if (!node || !isPlaceableNode(node)) continue
+    if (node.locked) {
+      lockedCount += 1
+      continue
+    }
+    const contactY = host.engine.worldContactY(id)
+    if (contactY === null) continue
+    eligible += 1
+    const delta = groundY - contactY
+    if (Math.abs(delta) < 1e-4) continue
+    const pos = currentWorldPos(host, node)
+    moves.push({ node, pos: { x: pos.x, y: pos.y + delta, z: pos.z } })
+  }
+  if (eligible === 0) return lockedCount > 0 ? 'node-locked' : 'unsupported'
+  if (moves.length === 0) return null
+  const before = snapshotDocState(host.docModel)
+  if (!before) return 'no-doc'
+  let written = false
+  for (const move of moves) {
+    if (writePlacedPosition(host, doc, move.node, move.pos) === 'written') written = true
+  }
+  if (written) {
+    host.docModel.touch()
+    host.pushDocSnapshot('放置在地面', before)
+  }
   return null
 }
 
@@ -1102,7 +1332,7 @@ function buildCameraFromEditorView(host: LibraryHost, doc: DirectorDocument): Dr
   }
   const baseName = preset?.name ?? 'Camera'
   const node: DraftNode = {
-    id: nextIndexedId(doc.content.nodes.map((item) => item.id), 'user_cam_'),
+    id: nextUniqueId(doc.content.nodes.map((item) => item.id), 'user_cam_'),
     type: 'camera',
     name: uniqueNodeName(doc, baseName),
     visible: true,
@@ -1116,6 +1346,7 @@ function buildCameraFromEditorView(host: LibraryHost, doc: DirectorDocument): Dr
       projection: 'perspective',
       fov: pose.fov,
       fovAxis: 'vertical',
+      aspectRatio: doc.content.aspectRatio,
       near: 0.1,
       far: 2000,
       isPrimary: false,
@@ -1308,7 +1539,7 @@ export function addCameraFromPreset(host: LibraryHost, presetId: string, name?: 
       fov: preset.fov,
     }
     const node: DraftNode = {
-      id: nextIndexedId(doc.content.nodes.map((item) => item.id), 'user_cam_'),
+      id: nextUniqueId(doc.content.nodes.map((item) => item.id), 'user_cam_'),
       type: 'camera',
       name: uniqueNodeName(doc, name ?? preset.name),
       visible: true,
@@ -1322,6 +1553,7 @@ export function addCameraFromPreset(host: LibraryHost, presetId: string, name?: 
         projection: 'perspective',
         fov: pose.fov,
         fovAxis: 'vertical',
+        aspectRatio: doc.content.aspectRatio,
         near: 0.1,
         far: 2000,
         isPrimary: false,
@@ -1406,7 +1638,7 @@ export async function addCharacter(
     rig: entry.rig,
   }, host.engine.poseBank)
   const ok = await host.engine.addRuntimeNode(node)
-  if (!ok) return '模型加载失败'
+  if (!ok) return 'Model failed to load'
   return host.commitAddedNode(node, '添加角色')
 }
 
@@ -1430,7 +1662,7 @@ export async function addMotionClipFromLibrary(
   try {
     sourceDuration = await host.engine.loadMotion(assetId, url)
   } catch (e) {
-    return `动作加载失败: ${e instanceof Error ? e.message : String(e)}`
+    return `Motion failed to load: ${e instanceof Error ? e.message : String(e)}`
   }
   const before = snapshotDocState(host.docModel)
   if (!before) return 'no-doc'
@@ -1475,7 +1707,7 @@ export async function addPropFromLibrary(
   // 用户库道具默认可调色，与 CharacterColorPanel 的 appearance.color 契约对齐
   node.prop = { category: node.prop?.category ?? 'user', appearance: { color: '#cccccc' } }
   const ok = await host.engine.addRuntimeNode(node)
-  if (!ok) return '道具模型加载失败'
+  if (!ok) return 'Prop model failed to load'
   return host.commitAddedNode(node, '添加道具')
 }
 
@@ -1492,7 +1724,7 @@ export function addPrimitive(
   const doc = host.docModel.snapshot
   if (!doc) return 'no-doc'
   const node: DraftNode = {
-    id: nextIndexedId(doc.content.nodes.map((item) => item.id), 'user_prim_'),
+    id: nextUniqueId(doc.content.nodes.map((item) => item.id), 'user_prim_'),
     type: 'primitive',
     name,
     visible: true,
@@ -1531,6 +1763,13 @@ export function writeNodeTransform(
     return null
   }
   if (!patch.position && !patch.rotation && !patch.scale) return null
+  if (
+    patch.position
+    && positionMoved(node.transform.position, patch.position)
+    && userPathBindingAtFrame(doc, nodeId, Math.round(host.engine.currentFrame))
+  ) {
+    host.editor.notifyPathBindMoveBlocked(nodeId)
+  }
   const edit: TransformEditPatch = {
     position: patch.position ? [patch.position.x, patch.position.y, patch.position.z] : undefined,
     rotation: patch.rotation ? [patch.rotation.x, patch.rotation.y, patch.rotation.z] : undefined,
@@ -1634,6 +1873,36 @@ export function setObjectAppearance(
   return 'unsupported'
 }
 
+/** 一次改多个人物 / 道具 / 几何体的标签显隐，记成一条撤销。 */
+export function setNodesShowLabel(host: LibraryHost, nodeIds: readonly string[], showLabel: boolean): string | null {
+  const doc = host.docModel.snapshot
+  if (!doc) return 'no-doc'
+  const targets = nodeIds.flatMap((id) => {
+    const node = doc.content.nodes.find((item) => item.id === id)
+    if (!node || node.locked) return []
+    if (node.character || node.type === 'prop' || node.type === 'primitive') return [node]
+    return []
+  })
+  if (targets.length === 0) return 'not-a-character'
+  const before = snapshotDocState(host.docModel)
+  if (!before) return 'no-doc'
+  for (const node of targets) {
+    if (node.character) {
+      node.character.label.showLabel = showLabel
+      continue
+    }
+    if (node.type === 'prop') {
+      if (!node.prop) node.prop = { category: 'user' }
+      node.prop.label = { showLabel }
+      continue
+    }
+    if (node.primitive) node.primitive.label = { showLabel }
+  }
+  host.docModel.touch()
+  host.pushDocSnapshot('改标签', before)
+  return null
+}
+
 
 export function setPoseJoints(
   host: LibraryHost,
@@ -1708,5 +1977,70 @@ export function applyPosePreset(host: LibraryHost, nodeId: string, presetId: str
   }
   host.docModel.touch()
   host.pushDocSnapshot('应用姿势预设', before)
+  return null
+}
+
+function poseTargets(
+  doc: DirectorDocument,
+  nodeIds: readonly string[],
+): { targets: string[]; locked: number } {
+  const seen = new Set<string>()
+  const targets: string[] = []
+  let locked = 0
+  for (const nodeId of nodeIds) {
+    if (seen.has(nodeId)) continue
+    seen.add(nodeId)
+    const node = doc.content.nodes.find((n) => n.id === nodeId)
+    if (!node?.character) continue
+    if (node.locked) {
+      locked += 1
+      continue
+    }
+    targets.push(nodeId)
+  }
+  return { targets, locked }
+}
+
+/** 同一条撤销里给多个人物套同一个姿势预设。锁定的人物跳过。 */
+export function applyPosePresets(
+  host: LibraryHost,
+  nodeIds: readonly string[],
+  presetId: string,
+): string | null {
+  const doc = host.docModel.snapshot
+  if (!doc) return 'no-doc'
+  if (!host.engine.poseBank.get(presetId) && !POSE_PRESET_BY_ID[presetId]) return 'preset-not-found'
+  const { targets, locked } = poseTargets(doc, nodeIds)
+  if (targets.length === 0) return locked > 0 ? 'node-locked' : 'not-a-character'
+  const before = snapshotDocState(host.docModel)
+  if (!before) return 'no-doc'
+  for (const nodeId of targets) {
+    applyPoseInPlace(doc, { type: 'apply-pose', nodeId, presetId }, host.engine.poseBank)
+  }
+  host.docModel.touch()
+  host.pushDocSnapshot('应用姿势预设', before)
+  return null
+}
+
+/** 同一条撤销里把多个人物重置回默认姿势。锁定的人物跳过。 */
+export function resetPoses(host: LibraryHost, nodeIds: readonly string[]): string | null {
+  const doc = host.docModel.snapshot
+  if (!doc) return 'no-doc'
+  const { targets, locked } = poseTargets(doc, nodeIds)
+  if (targets.length === 0) return locked > 0 ? 'node-locked' : 'not-a-character'
+  const before = snapshotDocState(host.docModel)
+  if (!before) return 'no-doc'
+  const presetId = host.engine.poseBank.defaultId()
+  for (const nodeId of targets) {
+    const node = doc.content.nodes.find((n) => n.id === nodeId)
+    if (!node?.character) continue
+    const anim = node.character.animation
+    anim.mode = 'pose'
+    anim.posePresetId = presetId
+    anim.controlValues = {}
+    anim.rootPositionOffset = { x: 0, y: 0, z: 0 }
+  }
+  host.docModel.touch()
+  host.pushDocSnapshot('重置姿势', before)
   return null
 }

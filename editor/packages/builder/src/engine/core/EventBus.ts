@@ -3,6 +3,7 @@ export type EngineEventName =
   | 'frame:throttled'
   | 'node:snapshot'
   | 'camera:change'
+  | 'camera:frame'
   | 'loading'
   | 'error'
 
@@ -12,6 +13,8 @@ export interface EngineEventMap {
   /** Paused evaluation (null = all nodes) or a live edit to one node. */
   'node:snapshot': string | null
   'camera:change': { x: number; y: number; z: number }
+  /** 主视口按机位取景时的画幅比例；null = 自由视角，不画取景框。 */
+  'camera:frame': number | null
   loading: string
   error: string
 }

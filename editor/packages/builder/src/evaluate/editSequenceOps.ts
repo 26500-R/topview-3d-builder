@@ -140,6 +140,23 @@ export function clipSequenceSpan(
   return { sequenceStart, duration: Math.max(0, getClipDurationFrames(clips[index])) }
 }
 
+/** 机位删掉后，引用它的分镜一并去掉；没有要去的返回 null，调用方原样保留文档。 */
+export function pruneMissingCameraClips(document: DirectorDocument): EditorialData | null {
+  const editorial = document.content.editorial
+  if (!editorial) return null
+  const cameraIds = new Set(
+    document.content.nodes.filter((node) => node.type === 'camera').map((node) => node.id),
+  )
+  let changed = false
+  const sequences = editorial.sequences.map((sequence) => {
+    const clips = sequence.clips.filter((clip) => cameraIds.has(clip.cameraNodeId))
+    if (clips.length === sequence.clips.length) return sequence
+    changed = true
+    return { ...sequence, clips }
+  })
+  return changed ? { ...editorial, sequences } : null
+}
+
 export function playbackIssues(document: DirectorDocument, sequenceId: string): EditSequenceIssue[] {
   return validateEditorial(document, { sequenceId, requireClips: true }).filter(
     (issue) => issue.code !== 'active-sequence-missing' && PLAYBACK_BLOCKING.has(issue.code),

@@ -6,7 +6,7 @@ import { isPathApplyTarget, isPathEditTarget } from '../../stores/nodeSelection'
 import { displayNodeName } from '../displayNames'
 import { Dropdown } from '../common/Dropdown'
 import { Tooltip } from '../common/Tooltip'
-import { IconCrosshair } from '../leftrail/icons'
+import { IconAimPick } from '../leftrail/icons'
 import { InspectorSection } from './PosePanel'
 
 export function PathEditButton({ node }: { node: DraftNode }): ReactElement | null {
@@ -56,23 +56,26 @@ export function PathSection({ node }: { node: DraftNode }): ReactElement | null 
   }
   return (
     <InspectorSection title={t('inspector.applyTo')} collapsible={false}>
-      <Dropdown
-        ariaLabel={t('inspector.applyTo')}
-        value=""
-        disabled={node.locked}
-        options={[
-          { value: '', label: t('inspector.pickTarget') },
-          ...targets.map((target) => ({
-            value: target.id,
-            label: targetLabel(target),
-            disabled: target.locked,
-          })),
-        ]}
-        onChange={(id) => {
-          if (!id || node.locked) return
-          setMsg(applyPathToTarget(node.id, id))
-        }}
-      />
+      <div className="t3d-cam-aim-target">
+        <span>{t('library.pickLookAt')}</span>
+        <Dropdown
+          ariaLabel={t('inspector.applyTo')}
+          value=""
+          disabled={node.locked}
+          options={[
+            { value: '', label: t('inspector.pickTarget') },
+            ...targets.map((target) => ({
+              value: target.id,
+              label: targetLabel(target),
+              disabled: target.locked,
+            })),
+          ]}
+          onChange={(id) => {
+            if (!id || node.locked) return
+            setMsg(applyPathToTarget(node.id, id))
+          }}
+        />
+      </div>
       <Tooltip label={t('help.pathApplyPick')} side="top" variant="description">
         <button
           type="button"
@@ -81,7 +84,7 @@ export function PathSection({ node }: { node: DraftNode }): ReactElement | null 
           disabled={node.locked}
           onClick={() => (picking ? cancelPathApplyPick() : beginPathApplyPick(node.id))}
         >
-          <IconCrosshair />
+          <IconAimPick />
           <span>{t('inspector.bindInViewport')}</span>
         </button>
       </Tooltip>

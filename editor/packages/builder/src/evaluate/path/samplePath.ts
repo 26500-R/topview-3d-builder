@@ -17,10 +17,12 @@ import {
 export interface PathEval {
   position: Vec3
   yaw: number
+  /** 世界空间切线，相机朝向路径时沿它看。 */
+  forward: Vec3
 }
 
 const _pts: NonNullable<DraftNode['path']>['points'] = []
-const _eval: PathEval = { position: { x: 0, y: 0, z: 0 }, yaw: 0 }
+const _eval: PathEval = { position: { x: 0, y: 0, z: 0 }, yaw: 0, forward: { x: 0, y: 0, z: 0 } }
 const _pos: SampledPoint = { x: 0, y: 0, z: 0 }
 const _tan: SampledPoint = { x: 0, y: 0, z: 0 }
 
@@ -230,6 +232,7 @@ export function evaluatePathMotionInto(
   const center = pathControlCentroid(pathNode)
   const xf = pathNode.transform
   let tanX: number
+  let tanY: number
   let tanZ: number
 
   if (path.parameterization === 'arc-length') {
@@ -242,6 +245,7 @@ export function evaluatePathMotionInto(
     out.position.z = world.z
     const dir = transformPathDirection(_tan, xf)
     tanX = dir.x
+    tanY = dir.y
     tanZ = dir.z
   } else {
     _pts.length = 0
@@ -271,9 +275,13 @@ export function evaluatePathMotionInto(
       xf,
     )
     tanX = dir.x
+    tanY = dir.y
     tanZ = dir.z
   }
 
+  out.forward.x = tanX
+  out.forward.y = tanY
+  out.forward.z = tanZ
   out.yaw = tanX * tanX + tanZ * tanZ > 1e-12 ? Math.atan2(tanX, tanZ) : 0
   return true
 }
@@ -287,5 +295,6 @@ export function evaluatePathMotion(
   return {
     position: { x: _eval.position.x, y: _eval.position.y, z: _eval.position.z },
     yaw: _eval.yaw,
+    forward: { x: _eval.forward.x, y: _eval.forward.y, z: _eval.forward.z },
   }
 }

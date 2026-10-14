@@ -1,7 +1,7 @@
 import { test } from 'vitest'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
-import { clearSkinnedRaycastBounds } from '../objects/skinnedBounds'
+import { clearSkinnedRaycastBounds, installBoneBounds, skinnedTopYInParent } from '../objects/skinnedBounds'
 
 /** 站姿：0.5 宽 / 1.8 高的躯干，单骨骼全权重，与角色实例同构。 */
 function buildRig() {
@@ -54,4 +54,50 @@ test('静止姿势不受影响', () => {
   const { root } = buildRig()
   new THREE.Box3().setFromObject(root)
   assert.equal(hitCount(root, new THREE.Vector3(0, 0.9, 0)), 1)
+})
+
+test('骨骼包围体摆姿后仍包住全部顶点，且不再逐顶点蒙皮', () => {
+  const { root, bone, mesh } = buildRig()
+  installBoneBounds(root)
+  bone.position.set(0.3, -0.4, 0.2)
+  bone.rotation.set(0.4, 0.2, -0.3)
+  root.updateMatrixWorld(true)
+  clearSkinnedRaycastBounds(root)
+
+  let skinned = 0
+  const original = mesh.applyBoneTransform.bind(mesh)
+  function countBoneTransform(index: number, vector: THREE.Vector3): THREE.Vector3
+  function countBoneTransform(index: number, vector: THREE.Vector4): THREE.Vector4
+  function countBoneTransform(index: number, vector: THREE.Vector3 | THREE.Vector4): THREE.Vector3 | THREE.Vector4 {
+    skinned += 1
+    return original(index, vector)
+  }
+  mesh.applyBoneTransform = countBoneTransform
+  mesh.computeBoundingBox()
+  mesh.computeBoundingSphere()
+  assert.equal(skinned, 0)
+
+  const box = mesh.boundingBox!
+  const sphere = mesh.boundingSphere!
+  const v = new THREE.Vector3()
+  for (let i = 0; i < mesh.geometry.attributes.position.count; i++) {
+    original(i, v.fromBufferAttribute(mesh.geometry.attributes.position, i))
+    assert.ok(box.containsPoint(v))
+    assert.ok(sphere.containsPoint(v))
+  }
+  assert.equal(hitCount(root, new THREE.Vector3(0.3, 0.5, 0.2)), 1)
+})
+
+test('标签高度跟随骨骼，静止姿势与逐顶点结果一致', () => {
+  const { root, bone, mesh } = buildRig()
+  const parent = new THREE.Group()
+  parent.add(root)
+  parent.updateMatrixWorld(true)
+  const precise = new THREE.Box3().setFromObject(mesh, true).max.y
+  assert.ok(Math.abs((skinnedTopYInParent(root, parent) ?? 0) - precise) < 1e-6)
+
+  bone.position.y = -0.5
+  parent.updateMatrixWorld(true)
+  assert.ok(Math.abs((skinnedTopYInParent(root, parent) ?? 0) - (precise - 0.5)) < 1e-6)
+  assert.equal(skinnedTopYInParent(new THREE.Group(), parent), null)
 })

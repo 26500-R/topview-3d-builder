@@ -12,7 +12,7 @@ import { isCentimeterMixamorig } from '../rig/mixamorigBind'
 import { CENTIMETER_MIXAMORIG_SCALE } from '../rig/standBasePose'
 import type { StageGraph } from './graph'
 import type { CharInstance } from './types'
-import { clearSkinnedRaycastBounds } from './skinnedBounds'
+import { clearSkinnedRaycastBounds, installBoneBounds } from './skinnedBounds'
 import { markTemplateShared } from './templateShared'
 
 function resolveCharacterRig(metadata: unknown): CharInstance['rig'] {
@@ -59,6 +59,7 @@ export function buildCharacterInstance(
   // 只有厘米绑定的官方 mixamorig 才乘皮皮特归一化；米制 Child 已经是米，再乘会缩错。
   if (rig === 'mixamorig' && isCentimeterMixamorig(inner)) inner.scale.setScalar(CENTIMETER_MIXAMORIG_SCALE)
   applyTransform(root, n.transform)
+  installBoneBounds(inner)
   clearSkinnedRaycastBounds(inner)
   const labelCfg = n.character?.label
   const sprite = makeLabel(n.name, n.character?.appearance.color ?? '#ffffff', labelCfg?.scale || 1)

@@ -27,7 +27,7 @@ export function SliderNumberControl({
       <span className="t3d-slider-number-value">
         <ScrubNumberInput value={value} min={min} max={max} step={step}
           precision={precision} disabled={disabled} ariaLabel={label} onChange={onChange} />
-        {unit && <span>{unit}</span>}
+        {unit ? <span className="t3d-slider-number-unit">{unit}</span> : null}
       </span>
     </div>
   )

@@ -68,12 +68,11 @@ export function StudioBootOverlay({
   locale,
   failed = false,
   message,
-  onClose,
   className,
 }: StudioBootOverlayProps) {
   return (
     <LocaleProvider locale={locale}>
-      <StudioBootShell className={className} failed={failed} message={message} onClose={onClose} />
+      <StudioBootShell className={className} failed={failed} message={message} />
     </LocaleProvider>
   )
 }
@@ -84,6 +83,9 @@ export interface StudioBootOverlayProps {
   failed?: boolean
   /** 失败原因，缺省回落包内通用文案 */
   message?: string
+  /**
+   * @deprecated 启动画面不再渲染退出。进入后的关闭仍用 DirectorStudio 的 onClose。
+   */
   onClose?: () => void
   className?: string
 }
@@ -92,17 +94,15 @@ function StudioBootShell({
   className,
   failed,
   message,
-  onClose,
 }: {
   className?: string
   failed?: boolean
   message?: string
-  onClose?: () => void
 }) {
   return (
     <div className={studioHostClass(className)}>
       <div className="t3d-root">
-        <StudioBootScreen failed={failed} message={message} onClose={onClose} />
+        <StudioBootScreen failed={failed} message={message} />
       </div>
     </div>
   )
@@ -134,7 +134,7 @@ export function DirectorStudio({
         onReady={onReady}
         autoSaveIntervalMs={readOnly ? 0 : autoSaveIntervalMs}
         readOnly={readOnly}
-        fallback={<StudioBootShell className={className} onClose={onClose} />}
+        fallback={<StudioBootShell className={className} />}
       >
         <OverlayCloseProvider onClose={onClose} saveInBackground={saveOnCloseInBackground}>
           <div className={hostClass}>

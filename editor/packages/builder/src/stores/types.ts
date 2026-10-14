@@ -214,6 +214,8 @@ export interface StudioView {
   exporting: boolean
   libraryOpen: boolean
   libraryTab: LibraryTab
+  /** 每次 `flashLibraryTab` 自增；左侧面板据此播一次高亮 */
+  libraryFlash: number
   libraryContentWidth: number
   inspectorOpen: boolean
   inspectorContentWidth: number
@@ -233,6 +235,8 @@ export interface StudioView {
   poseEditingId: string | null
   /** 第一人称操控中的相机 id；null 表示未进入 */
   cameraPilotId: string | null
+  /** 最近一次操控相机成功保存的临时提示，不持久化。 */
+  cameraPilotSaved: { cameraId: string; savedAt: number } | null
   /** 轨迹锚点编辑中的路径 id；null 表示未进入编辑 */
   pathEditingId: string | null
   /** 当前激活的轨迹锚点下标 */
@@ -241,10 +245,23 @@ export interface StudioView {
   lookAtPickingId: string | null
   /** 轨迹点选绑定中的路径 id；点物体后生成 PathMotionClip */
   pathApplyPickingId: string | null
+  /** 「放在对象上」点选中的被放置节点 id；点承托物后按其顶面落位 */
+  placeOnSupportPickingId: string | null
   cameraAimReleaseVersion: number
   /** 运镜片段内拖动机位位置被拦下后递增，驱动顶部 Toast。 */
   cameraMotionDragNoticeVersion: number
-  notifyCameraMotionDragBlocked: () => void
+  cameraMotionDragCameraId: string | null
+  notifyCameraMotionDragBlocked: (cameraId?: string) => void
+  dismissCameraMotionDragNotice: () => void
+  releaseCameraMotions: (cameraId: string) => void
+  /** 轨迹绑定中尝试移动的对象。非空时顶部 Toast 保持到解除绑定。 */
+  pathBindMoveNodeId: string | null
+  pathBindMoveNoticeVersion: number
+  notifyPathBindMoveBlocked: (nodeId: string) => void
+  dismissPathBindMoveNotice: () => void
+  releasePathBinding: (nodeId: string) => void
+  /** 绑定路径的相机在「朝向路径」和「原本方向」之间切换。 */
+  setCameraPathFacing: (cameraId: string, facing: 'path-tangent' | 'none') => void
   gizmoMode: GizmoMode
   pathDrawMode: boolean
   pathDrawStyle: PathDrawStyle
@@ -262,8 +279,10 @@ export interface StudioView {
 
   toggleLibrary: () => void
   setLibraryTab: (t: LibraryTab) => void
+  flashLibraryTab: (t: LibraryTab) => void
   setLibraryContentWidth: (w: number) => void
   toggleInspector: () => void
+  openInspector: () => void
   setInspectorContentWidth: (w: number) => void
   toggleTimeline: () => void
   toggleTimelinePanel: () => void
@@ -284,6 +303,7 @@ export interface StudioView {
   stepFrame: (delta: number) => void
   setActiveCamera: (id: string) => void
   setAspectRatio: (value: string) => void
+  setCameraAspectRatio: (cameraId: string, value: string) => string | null
   setTimelineRange: (frameStart: number, frameEnd: number) => void
   setTimelineFps: (fps: number) => void
   beginTimelineRangeEdit: () => void
@@ -341,7 +361,11 @@ export interface StudioView {
   cancelLookAtPick: () => void
   beginPathApplyPick: (pathId: string) => void
   cancelPathApplyPick: () => void
+  beginPlaceOnSupportPick: (nodeId: string) => void
+  cancelPlaceOnSupportPick: () => void
   placeNodeOnGround: (nodeId: string) => string | null
+  /** 多选一起放到地面，一步撤销；锁定 / 不可放置的跳过。 */
+  placeNodesOnGround: (nodeIds: readonly string[]) => string | null
   placeNodeOnSupport: (nodeId: string, supportId: string) => string | null
   writeNodeTransform: (
     nodeId: string,
@@ -353,6 +377,7 @@ export interface StudioView {
   ) => string | null
   setCharacterAppearance: (nodeId: string, patch: { color?: string; showLabel?: boolean }) => string | null
   setObjectAppearance: (nodeId: string, patch: { color?: string; showLabel?: boolean }) => string | null
+  setNodesShowLabel: (nodeIds: readonly string[], showLabel: boolean) => string | null
   applyFollowingCameraWorldPos: (
     cameraId: string,
     worldPos: { x: number; y: number; z: number },
@@ -407,6 +432,10 @@ export interface StudioView {
   setPoseJoints: (nodeId: string, joints: Record<string, { x: number; y: number; z: number }>) => void
   resetPose: (nodeId: string) => void
   applyPosePreset: (nodeId: string, presetId: string) => string | null
+  /** 给多个人物套同一个姿势预设，记成一条撤销。 */
+  applyPosePresets: (nodeIds: readonly string[], presetId: string) => string | null
+  /** 把多个人物重置回默认姿势，记成一条撤销。 */
+  resetPoses: (nodeIds: readonly string[]) => void
   undo: () => void
   redo: () => void
   beginInteraction: () => void

@@ -1,5 +1,9 @@
 import type { TutorialStep } from './types'
 
+/** 顶栏教程按钮：新开页并直达「3D Builder」小节。 */
+export const TUTORIAL_PAGE_URL = 'https://www.topview.ai/academy/spatial-control'
+export const TUTORIAL_PAGE_HASH = '3-1-3d-builder-build-scenes-stage-action-and-move-the-camera'
+
 export const TUTORIAL_CARD_WIDTH = 340
 export const TUTORIAL_CARD_MIN_HEIGHT = 168
 export const TUTORIAL_CARD_GAP = 14

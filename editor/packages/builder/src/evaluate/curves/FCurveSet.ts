@@ -131,7 +131,7 @@ export class FCurveSet {
 
   static parse(json: any): FCurveSet {
     if (!json || json.encoding !== 'compact-v1' || !Array.isArray(json.fcurves)) {
-      throw new Error('不是 compact-v1 格式的 fcurves 文件')
+      throw new Error('fcurves file is not compact-v1')
     }
     const curves: FCurve[] = json.fcurves.map((raw: any) => {
       const nodeId = Array.isArray(raw.t) ? String(raw.t[1]) : String(raw.t)
@@ -527,7 +527,8 @@ export class FCurveSet {
               return Number.isFinite(n) ? n : 0
             }),
             interpolation: (() => {
-              const raw = String(rec.interpolation ?? 'linear')
+              // 缺省 / 非法值回退到默认平滑缓动；显式写了 linear 的键保持匀速
+              const raw = String(rec.interpolation ?? 'ease-in-out')
               if (
                 raw === 'smooth' ||
                 raw === 'ease-in-out' ||
@@ -537,7 +538,7 @@ export class FCurveSet {
               ) {
                 return raw
               }
-              return 'linear'
+              return 'ease-in-out'
             })(),
           })
         }

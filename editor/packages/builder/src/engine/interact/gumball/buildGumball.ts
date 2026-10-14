@@ -364,6 +364,21 @@ export function setHandleHovered(userData: GumballHandleUserData | null, allHand
   })
 }
 
+/**
+ * 拖拽聚焦：只保留 active 手柄的可视材质，其余手柄（轴/尖锥/缩放方块/旋转弧/平面）瞬时隐藏。
+ * 传 null 恢复全部显示。通过 `material.visible` 切换，不动 hit proxy 与拖拽数学，无过渡动画。
+ */
+export function setGumballDragFocus(active: GumballHandleUserData | null, allHandles: THREE.Mesh[]): void {
+  allHandles.forEach((mesh) => {
+    const data = mesh.userData.gumball as GumballHandleUserData | undefined
+    if (!data) return
+    const visible = !active || active.key === data.key
+    data.highlightMaterials.forEach((mat) => {
+      mat.visible = visible
+    })
+  })
+}
+
 export function pickHandle(raycaster: THREE.Raycaster, interactiveMeshes: THREE.Mesh[]): GumballHandleUserData | null {
   const hits = raycaster.intersectObjects(interactiveMeshes.filter((mesh) => {
     let object: THREE.Object3D | null = mesh

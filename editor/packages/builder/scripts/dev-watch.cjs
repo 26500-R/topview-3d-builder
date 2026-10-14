@@ -1,15 +1,44 @@
-const { spawn } = require('child_process')
+const { spawn, execFileSync } = require('child_process')
 const path = require('path')
 const chokidar = require('chokidar')
 
 const root = path.join(__dirname, '..')
 const finalize = path.join(__dirname, 'finalize-dist.cjs')
 
+function stopProcessTree(pid) {
+  if (!pid) return
+  if (process.platform === 'win32') {
+    try {
+      execFileSync('taskkill', ['/pid', String(pid), '/t', '/f'], { stdio: 'ignore', timeout: 15000 })
+    } catch { /* already exited */ }
+    return
+  }
+  try { process.kill(pid, 'SIGTERM') } catch { /* ignore */ }
+}
+
+// Windows 上 shell: true 起的 tsup 不随父进程退出；上次异常退出留下的 watcher 会继续抢写 dist。
+function listRepoTsupWatcherPids() {
+  if (process.platform !== 'win32') return []
+  try {
+    const out = execFileSync('powershell', ['-NoProfile', '-Command',
+      "$tsups = @(Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | Where-Object { $_.CommandLine -like '*topview-3d-builder*cli-default.js*--watch*' }); $parents = @{}; foreach ($p in $tsups) { $parents[[string]$p.ParentProcessId] = $true }; $pnpm = @(Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | Where-Object { $_.CommandLine -like '*exec tsup --watch*' -and $parents.ContainsKey([string]$_.ProcessId) }); @($pnpm + $tsups | ForEach-Object { $_.ProcessId }) -join \"`n\""],
+      { encoding: 'utf8', timeout: 20000 })
+    return [...new Set(String(out).split(/\r?\n/).map((line) => Number(line.trim())).filter((pid) => pid > 0))]
+  } catch {
+    return []
+  }
+}
+
+function reapOrphanTsupWatchers() {
+  for (const pid of listRepoTsupWatcherPids()) stopProcessTree(pid)
+}
+
 let tsup = null
 let restartTimer = null
 let stopping = false
 
 function startTsup() {
+  reapOrphanTsupWatchers()
   const proc = spawn('pnpm', ['exec', 'tsup', '--watch'], {
     cwd: root,
     stdio: 'inherit',
@@ -31,7 +60,8 @@ function restartTsup() {
   restartTimer = setTimeout(() => {
     restartTimer = null
     if (tsup) {
-      tsup.kill('SIGTERM')
+      stopProcessTree(tsup.pid)
+      try { tsup.kill('SIGTERM') } catch { /* tree kill already exited it */ }
       tsup = null
     }
     startTsup()
@@ -74,7 +104,11 @@ chokidar
 function shutdown() {
   stopping = true
   if (restartTimer) clearTimeout(restartTimer)
-  if (tsup) tsup.kill('SIGTERM')
+  if (tsup) {
+    stopProcessTree(tsup.pid)
+    try { tsup.kill('SIGTERM') } catch { /* tree kill already exited it */ }
+  }
+  reapOrphanTsupWatchers()
   process.exit(0)
 }
 

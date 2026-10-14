@@ -390,11 +390,12 @@ export function CameraMotionThumb({ id, instance }: { id: string; instance?: str
   const samples = downsample(poses)
   const start = samples[0]
   const end = samples[samples.length - 1]
+  const hover = instance === 'hover'
   return (
     <Diagram
       uid={instance ? `m-${id}-${instance}` : `m-${id}`}
-      width={112}
-      height={70}
+      width={hover ? 112 : 80}
+      height={hover ? 70 : 80}
       points={[
         start.position,
         start.lookAt,

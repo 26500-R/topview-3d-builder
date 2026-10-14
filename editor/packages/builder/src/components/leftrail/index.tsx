@@ -4,7 +4,8 @@ import { useT } from '../../locale'
 import { cx } from '../common/cx'
 import { Tooltip } from '../common/Tooltip'
 import { CatalogPane } from './CatalogPane'
-import { TAB_ORDER } from './constants'
+import { TAB_LABEL, TAB_ORDER } from './constants'
+import { useFlashOnChange } from './hooks/useFlashOnChange'
 import { usePanelResize } from './hooks/usePanelResize'
 import { IconRail } from './IconRail'
 import { IconChevron } from './icons'
@@ -18,9 +19,11 @@ export function LeftRail(): ReactElement | null {
   const libraryOpen = useStore((s) => s.libraryOpen)
   const tab = useStore((s) => s.libraryTab)
   const width = useStore((s) => s.libraryContentWidth)
+  const flash = useStore((s) => s.libraryFlash)
   const { toggleLibrary, setLibraryTab, setLibraryContentWidth } = useStore()
   const contentRef = useRef<HTMLDivElement>(null)
   const { onPointerDown } = usePanelResize(contentRef, width, libraryOpen, setLibraryContentWidth)
+  useFlashOnChange(contentRef, flash)
 
   if (!doc) return null
   const resolvedTab = film ? 'object' : TAB_ORDER.includes(tab) ? tab : 'object'
@@ -41,6 +44,7 @@ export function LeftRail(): ReactElement | null {
           className={cx('t3d-leftrail-content', !libraryOpen && 'is-collapsed')}
           data-tutorial-anchor="leftrail"
         >
+          <div className="t3d-leftrail-pane-title">{t(TAB_LABEL[resolvedTab])}</div>
           {film || resolvedTab === 'object' ? <ObjectTree /> : <CatalogPane tab={resolvedTab} />}
         </div>
         {libraryOpen ? (

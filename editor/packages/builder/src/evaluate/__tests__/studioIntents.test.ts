@@ -73,6 +73,22 @@ test('加人按角色数偏移 x，默认 t-pose，且不改输入草稿', () =>
   parseDirectorDocument(second.document)
 })
 
+test('删光角色后再加人，不复用删掉的节点 ID', () => {
+  const addWoman = (document: DirectorDocument) => applyStudioIntent({
+    document,
+    intent: { type: 'add-character', libraryId: 'chr-a', name: '女人', modelUrl: '3d-builder/library/woman.glb' },
+  }).document
+  const first = addWoman(emptyDoc())
+  const removedId = first.content.nodes.find((n) => n.type === 'character')!.id
+  const cleared = { ...first, content: { ...first.content, nodes: first.content.nodes.filter((n) => n.id !== removedId) } }
+  const again = addWoman(cleared)
+  const readded = again.content.nodes.find((n) => n.type === 'character')!
+  assert.match(removedId, /^user_chr_[0-9a-z]{8}$/)
+  assert.match(readded.id, /^user_chr_[0-9a-z]{8}$/)
+  assert.notEqual(readded.id, removedId)
+  assert.equal(readded.name, '女人_1')
+})
+
 test('加构图相机写入 preset 字段，禁止 current', () => {
   const wide = requirePreset('front-wide')
   const added = applyStudioIntent({

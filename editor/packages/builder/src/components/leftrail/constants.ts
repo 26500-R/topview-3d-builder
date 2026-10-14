@@ -30,7 +30,6 @@ export const TAB_LABEL: Record<LibraryTab, string> = {
 
 export const CAMERA_MOTION_CATEGORY_LABEL: Record<string, string> = {
   basic: 'library.categoryBasic',
-  character: 'library.categoryCharacter',
   space: 'library.categorySpace',
 }
 

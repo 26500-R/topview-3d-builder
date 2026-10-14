@@ -1,6 +1,11 @@
 /* 色板对齐 aigc-web-turbo 的 Board token（.board-ui-scope）：
    面色 #131313 / #141414、描边 #232323、次级文字 #8A8A8A、品牌紫 #731DFB（强调 #9452FF）。
    选择器同时覆盖根容器与 portal。 */
+:root {
+  /* 与侧栏一致：Instrument Sans，其次系统西文。宿主注入 --font-instrument-sans 时用宿主那份。 */
+  --t3d-font-sans: var(--font-instrument-sans, "Instrument Sans"), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
 :where(.t3d-root, .t3d-portal-root) {
   --t3d-bg: #060606;
   --t3d-bg-header: #131313;
@@ -27,6 +32,9 @@
   --t3d-text: #ffffff;
   --t3d-text-secondary: rgba(255, 255, 255, 0.7);
   --t3d-text-muted: #8a8a8a;
+  --t3d-text-title: #fafafa;
+  --t3d-text-label: rgba(255, 255, 255, 0.45);
+  --t3d-text-toggle: rgba(255, 255, 255, 0.85);
   --t3d-text-dim: rgba(255, 255, 255, 0.4);
   --t3d-text-hint: rgba(255, 255, 255, 0.32);
   --t3d-text-empty: rgba(255, 255, 255, 0.28);

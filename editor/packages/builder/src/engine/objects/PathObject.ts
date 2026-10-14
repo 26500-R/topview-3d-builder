@@ -46,11 +46,14 @@ export interface PathMaterials {
 
 export interface PathViewHost extends StageGraph {
   editorCamera: THREE.Camera
+  viewCamera?: THREE.Camera
   pathViews: Map<string, THREE.Group>
   pathPickTargets: Map<string, THREE.Object3D>
   pathMaterials: Map<string, PathMaterials>
   selectedPathId: string | null
   visiblePathIds: Set<string>
+  /** 机位视角等临时藏过轨迹；退出后要按原选中集再显示，不能靠集合没变就跳过。 */
+  pathOverlayHidden?: boolean
   pathEditingId?: string | null
   pathEditPointIndex?: number | null
 }
@@ -216,11 +219,18 @@ export function syncPathSelection(
   visiblePathIds: Iterable<string> = [],
   hideAll = false,
 ): void {
+  if (hideAll) {
+    for (const view of graph.pathViews.values()) view.visible = false
+    graph.pathOverlayHidden = true
+    return
+  }
   const next = selectedNodeId && graph.pathMaterials.has(selectedNodeId) ? selectedNodeId : null
   const nextVisible = new Set(visiblePathIds)
   const visibilityChanged =
     nextVisible.size !== graph.visiblePathIds.size || [...nextVisible].some((id) => !graph.visiblePathIds.has(id))
-  if (!hideAll && next === graph.selectedPathId && !visibilityChanged) return
+  const restoreHidden = graph.pathOverlayHidden === true
+  graph.pathOverlayHidden = false
+  if (!restoreHidden && next === graph.selectedPathId && !visibilityChanged) return
   if (graph.selectedPathId) {
     paintPath(graph, graph.selectedPathId, false)
   }
@@ -228,8 +238,8 @@ export function syncPathSelection(
   graph.visiblePathIds.clear()
   for (const id of nextVisible) graph.visiblePathIds.add(id)
   for (const [id, view] of graph.pathViews) {
-    view.visible = hideAll ? false : graph.nodeById.get(id)?.visible ?? false
-    if (!hideAll && (graph.visiblePathIds.has(id) || graph.selectedPathId === id)) view.visible = true
+    view.visible = graph.nodeById.get(id)?.visible ?? false
+    if (graph.visiblePathIds.has(id) || graph.selectedPathId === id) view.visible = true
   }
   if (next) {
     paintPath(graph, next, true)
@@ -327,7 +337,7 @@ export function pickPathPointIndicesInScreenRect(
   const points = graph.pathMaterials.get(pathId)?.points ?? []
   const result: number[] = []
   for (let i = 0; i < points.length; i++) {
-    const pointRect = projectObjectToContainerRect(points[i].mesh, graph.editorCamera, container)
+    const pointRect = projectObjectToContainerRect(points[i].mesh, graph.viewCamera ?? graph.editorCamera, container)
     if (pointRect && rectsIntersect(rect, pointRect)) result.push(i)
   }
   return result
@@ -410,7 +420,7 @@ export function pickPathPointHit(
   raycaster: THREE.Raycaster,
   ndcX: number,
   ndcY: number,
-  camera: THREE.PerspectiveCamera,
+  camera: THREE.Camera,
   pathId?: string | null,
 ): { id: string; index: number; dist: number } | null {
   const ids = pathId ? [pathId] : [...graph.pathMaterials.keys()]
@@ -437,7 +447,7 @@ export function pickPathHit(
   raycaster: THREE.Raycaster,
   ndcX: number,
   ndcY: number,
-  camera: THREE.PerspectiveCamera,
+  camera: THREE.Camera,
 ): { id: string; dist: number } | null {
   if (graph.pathPickTargets.size === 0) return null
   raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), camera)

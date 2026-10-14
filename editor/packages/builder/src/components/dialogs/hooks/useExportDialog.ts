@@ -7,6 +7,7 @@ import {
   resolveAspectRatio,
   widthFromAspectHeight,
 } from '../../../contract/aspectRatio'
+import { cameraAspectSetting } from '../../../contract/cameraAspect'
 import { defaultVideoExportEndFrame } from '../../../evaluate'
 import { clampFrame } from '../../common/rangeSliderUtils'
 import { useViewportAspect } from '../../hooks/useViewportAspect'
@@ -16,7 +17,14 @@ import { EDITOR_EXPORT_CAMERA_ID, useEngine, type DirectorEngine } from '../../.
 import { useT, type TranslateFn } from '../../../locale'
 import type { ExportMeta, HostAdapter } from '../../../host/types'
 import type { StudioView } from '../../../stores/types'
-import { resolveDefaultExportCameraId } from '../utils'
+import {
+  DEFAULT_EXPORT_HEIGHT,
+  exportResolutionOptions,
+  parseExportHeight,
+  resolveDefaultExportCameraId,
+  type ExportHeight,
+  type ExportTimeUnit,
+} from '../utils'
 import { PREVIEW_HEIGHT, useExportPreview } from './useExportPreview'
 import type { TopviewCanvasSent } from './useTopviewCanvasSend'
 
@@ -31,6 +39,7 @@ export type ExportListItem = {
   aspectRatio: string
   label: string
   width: number
+  height: number
   frame: number
   start: number
   end: number
@@ -38,7 +47,15 @@ export type ExportListItem = {
 
 type ExportJob = Omit<ExportListItem, 'id' | 'aspectRatio'>
 
-const EXPORT_HEIGHT = 1080
+function exportAspectSetting(
+  doc: { content: { aspectRatio: string; nodes: { id: string; type: string; camera?: { aspectRatio?: string } }[] } } | null,
+  cameraId: string,
+): string {
+  if (!doc) return DEFAULT_ASPECT_RATIO
+  if (cameraId === EDITOR_EXPORT_CAMERA_ID) return doc.content.aspectRatio ?? DEFAULT_ASPECT_RATIO
+  const cam = doc.content.nodes.find((node) => node.id === cameraId && node.type === 'camera')
+  return cameraAspectSetting(cam?.camera, doc.content.aspectRatio)
+}
 
 function exportLabel(cameraId: string, name: string | undefined): string {
   const raw = cameraId === EDITOR_EXPORT_CAMERA_ID ? 'editor' : name || cameraId
@@ -58,9 +75,11 @@ export function useExportDialog() {
   const fs = tl?.frameStart ?? 0
   const fe = tl?.frameEnd ?? 0
   const [output, setOutput] = useState<ExportOutputKind>('image')
+  const [timeUnit, setTimeUnit] = useState<ExportTimeUnit>('frames')
   const [cameraId, setCameraId] = useState(() =>
     resolveDefaultExportCameraId(cameras, activeCameraId, EDITOR_EXPORT_CAMERA_ID),
   )
+  const sceneAspect = cameraId === EDITOR_EXPORT_CAMERA_ID ? null : exportAspectSetting(doc, cameraId)
   const [currentFrame, setCurrentFrame] = useState(() => clampFrame(frame, fs, fe))
   const [start, setStart] = useState(tl?.frameStart ?? 0)
   const motionClips = doc?.content.timeline.animation.cameraMotionClips ?? []
@@ -70,14 +89,22 @@ export function useExportDialog() {
     fe,
   )
   const [end, setEnd] = useState(defaultEnd)
-  const [aspectRatio, setAspectRatio] = useState(doc?.content.aspectRatio ?? DEFAULT_ASPECT_RATIO)
+  const [aspectRatio, setAspectRatio] = useState(() => exportAspectSetting(doc, cameraId))
+  const [exportHeight, setExportHeight] = useState<ExportHeight>(DEFAULT_EXPORT_HEIGHT)
   const [list, setList] = useState<ExportListItem[]>([])
   useEffect(() => {
     setEnd(clampFrame(defaultEnd, fs, fe))
   }, [cameraId, defaultEnd, fs, fe])
+  useEffect(() => {
+    if (cameraId === EDITOR_EXPORT_CAMERA_ID) {
+      setAspectRatio(doc?.content.aspectRatio ?? DEFAULT_ASPECT_RATIO)
+      return
+    }
+    if (sceneAspect) setAspectRatio(sceneAspect)
+  }, [cameraId, sceneAspect, doc?.content.aspectRatio])
   const viewportAspect = useViewportAspect(isAutoAspectRatio(aspectRatio))
   const numericAspect = resolveAspectRatio(aspectRatio, viewportAspect)
-  const width = widthFromAspectHeight(EXPORT_HEIGHT, numericAspect)
+  const width = widthFromAspectHeight(exportHeight, numericAspect)
   const previewWidth = widthFromAspectHeight(PREVIEW_HEIGHT, numericAspect)
   const label = exportLabel(cameraId, cameras.find((c) => c.id === cameraId)?.name)
   const { previewUrl, previewLoading, previewCanvasRef } = useExportPreview({
@@ -94,7 +121,7 @@ export function useExportDialog() {
     enabled: Boolean(doc),
     exporting,
   })
-  const actions = useExportActions({ t, engine, adapter, useStore, cameraId, label, width, currentFrame, start, end, fps: tl?.fps })
+  const actions = useExportActions({ t, engine, adapter, useStore, cameraId, label, width, height: exportHeight, currentFrame, start, end, fps: tl?.fps })
 
   return {
     t,
@@ -104,6 +131,9 @@ export function useExportDialog() {
     exporting,
     output,
     setOutput,
+    timeUnit,
+    setTimeUnit,
+    fps: tl?.fps ?? 30,
     cameraId,
     setCameraId,
     currentFrame,
@@ -117,8 +147,17 @@ export function useExportDialog() {
     end,
     setEnd: (value: number) => setEnd(clampFrame(value, start, fe)),
     aspectRatio,
-    setAspectRatio,
+    setAspectRatio: (ratio: string) => {
+      setAspectRatio(ratio)
+      if (cameraId !== EDITOR_EXPORT_CAMERA_ID) useStore.getState().setCameraAspectRatio(cameraId, ratio)
+    },
     aspectOptions: ASPECT_RATIO_MENU_ORDER,
+    exportHeight,
+    resolutionOptions: exportResolutionOptions(numericAspect),
+    setExportHeight: (value: string) => {
+      const next = parseExportHeight(value)
+      if (next) setExportHeight(next)
+    },
     previewUrl,
     previewLoading,
     previewCanvasRef,
@@ -133,6 +172,7 @@ export function useExportDialog() {
           aspectRatio,
           label,
           width,
+          height: exportHeight,
           frame: currentFrame,
           start,
           end,
@@ -157,6 +197,7 @@ function useExportActions(input: {
   cameraId: string
   label: string
   width: number
+  height: number
   currentFrame: number
   start: number
   end: number
@@ -172,6 +213,7 @@ function useExportActions(input: {
     cameraId: input.cameraId,
     label: input.label,
     width: input.width,
+    height: input.height,
     frame: input.currentFrame,
     start: input.start,
     end: input.end,
@@ -184,7 +226,7 @@ function useExportActions(input: {
       cameraId: job.cameraId,
       label: job.label,
       width: job.width,
-      height: EXPORT_HEIGHT,
+      height: job.height,
       userKeys: s.userKeys,
       userKeysEnabled: s.userKeysEnabled,
       chainCameraMotion: s.chainCameraMotion,

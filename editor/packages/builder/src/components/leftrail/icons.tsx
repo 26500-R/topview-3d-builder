@@ -1,4 +1,5 @@
 import type { ReactElement, ReactNode } from 'react'
+import type { LibraryTab } from '../../stores/types'
 
 function Svg({ children, className }: { children: ReactNode; className?: string }): ReactElement {
   return (
@@ -42,6 +43,15 @@ export function IconCamera({ className }: { className?: string }): ReactElement 
       <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5" />
       <rect x="2" y="6" width="14" height="12" rx="2" />
     </Svg>
+  )
+}
+
+export function IconCameraFilled({ className }: { className?: string }): ReactElement {
+  return (
+    <svg className={className} viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden>
+      <path d="M16 10.5 21.248 7.438A.5.5 0 0 1 22 7.87v8.196a.5.5 0 0 1-.777.416L16 13Z" />
+      <rect x="2" y="6" width="14" height="12" rx="2" />
+    </svg>
   )
 }
 
@@ -141,12 +151,11 @@ export function IconCrosshair({ className }: { className?: string }): ReactEleme
   )
 }
 
-export function IconLocate({ className }: { className?: string }): ReactElement {
+export function IconAimPick({ className }: { className?: string }): ReactElement {
   return (
-    <Svg className={className}>
-      <circle cx="12" cy="12" r="3" />
-      <path d="M12 3.5v3.2M12 17.3v3.2M3.5 12h3.2M17.3 12h3.2" />
-    </Svg>
+    <svg className={className} viewBox="0 0 1024 1024" width="16" height="16" fill="currentColor" aria-hidden>
+      <path d="M512 170.666667c188.5184 0 341.333333 152.814933 341.333333 341.333333s-152.814933 341.333333-341.333333 341.333333S170.666667 700.5184 170.666667 512 323.4816 170.666667 512 170.666667z m24.405333 145.92h-48.810666V220.501333a292.522667 292.522667 0 0 0-267.1616 267.946667h96.8704v48.810667H220.5696a292.522667 292.522667 0 0 0 266.786133 266.24v-97.0752h48.776534v97.0752a292.522667 292.522667 0 0 0 267.298133-266.24h-96.017067v-48.810667h96.1536a292.522667 292.522667 0 0 0-267.1616-267.946667v96.085334z m-24.7808 97.8944a97.518933 97.518933 0 1 1 0 195.037866 97.518933 97.518933 0 0 1 0-195.037866z" />
+    </svg>
   )
 }
 
@@ -170,10 +179,9 @@ export function IconChevron({ className }: { className?: string }): ReactElement
 
 export function IconPointer({ className }: { className?: string }): ReactElement {
   return (
-    <Svg className={className}>
-      <path d="M4 4l6.4 15.4 2.3-6.7 6.7-2.3L4 4Z" />
-      <path d="M13 13l5 5" />
-    </Svg>
+    <svg className={className} viewBox="0 0 1024 1024" width="16" height="16" fill="currentColor" aria-hidden>
+      <path d="M250.752 208.448a32 32 0 0 0-41.216 41.216l207.36 550.4a32 32 0 0 0 60.8-2.624l55.936-198.528A96 96 0 0 1 600 532.48l198.528-55.936a32 32 0 0 0 2.56-60.8l-550.4-207.36z m-101.12 63.808c-29.12-77.248 46.4-152.832 123.712-123.712l550.336 207.36c86.72 32.704 81.408 157.12-7.808 182.272l-198.528 56a32 32 0 0 0-22.144 22.08l-55.936 198.528c-25.152 89.216-149.568 94.528-182.208 7.808l-207.424-550.4z" />
+    </svg>
   )
 }
 
@@ -200,6 +208,14 @@ export function IconTimeline({ className }: { className?: string }): ReactElemen
     <svg className={className} viewBox="0 0 1024 1024" width="16" height="16" fill="currentColor" aria-hidden>
       <path d="M927.232 355.84H445.44V258.9696h17.8688c11.776 0 16.896-4.5568 16.896-16.8448V67.9936c0-11.776-4.608-16.7936-16.896-16.7936H366.08c-11.776 0-16.896 4.5056-16.896 16.7936V242.176c0 11.776 4.608 16.8448 16.896 16.8448h12.8v96.768l-286.208 0.0512c-17.92 0-32.256 14.336-32.256 32.256v383.488c0 17.92 14.336 31.744 32.256 31.744l286.208 0.0512v135.3728c0 5.632 0.2048 11.264 1.9968 16.5888q7.4752 22.6304 33.792 22.6816c20.48 0 30.72-18.5344 30.72-30.8224v-143.8208l482.304-0.0512c17.92 0 31.744-14.336 31.744-31.744V388.096c0-17.92-14.336-32.256-32.256-32.256zM278.016 739.328v-105.472c0-11.776-9.728-22.016-22.016-22.016s-22.016 9.728-22.016 22.016v105.472H124.416V419.84H378.88v319.5392l-100.864-0.0512z m617.472 0h-138.24v-105.472c0-11.776-9.728-22.016-22.016-22.016s-22.016 9.728-22.016 22.016v105.472h-115.2v-105.472c0-11.776-9.728-22.016-22.016-22.016s-22.016 9.728-22.016 22.016v105.472l-108.544 0.0512V419.84l450.048 0.0512v319.488z" />
     </svg>
+  )
+}
+
+export function IconPlus({ className }: { className?: string }): ReactElement {
+  return (
+    <Svg className={className}>
+      <path d="M12 5v14M5 12h14" />
+    </Svg>
   )
 }
 
@@ -363,4 +379,13 @@ export function IconExitFullscreen({ className }: { className?: string }): React
       <path d="M15 19.5V15h4.5" />
     </svg>
   )
+}
+
+export const TAB_ICON: Record<LibraryTab, (props: { className?: string }) => ReactElement> = {
+  object: IconObject,
+  character: IconCharacter,
+  prop: IconProp,
+  motion: IconMotion,
+  camera: IconCamera,
+  cameraMotion: IconCameraMotion,
 }

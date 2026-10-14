@@ -46,7 +46,7 @@ export class JointHandleLayer {
     }
   }
 
-  pick(camera: THREE.PerspectiveCamera, ndcX: number, ndcY: number): JointHandleSpec | null {
+  pick(camera: THREE.PerspectiveCamera | THREE.OrthographicCamera, ndcX: number, ndcY: number): JointHandleSpec | null {
     if (!this.group.visible) return null
     this.group.updateWorldMatrix(true, true)
     this.ray.layers.set(EDITOR_LAYER)
@@ -56,7 +56,7 @@ export class JointHandleLayer {
   }
 
   sync(
-    camera: THREE.PerspectiveCamera,
+    camera: THREE.PerspectiveCamera | THREE.OrthographicCamera,
     canvasHeight: number,
     canonical: Partial<Record<PoseCanonicalKey, THREE.Object3D>> | null,
     restPose: Map<string, THREE.Quaternion> | null,
@@ -70,7 +70,9 @@ export class JointHandleLayer {
       handle.visible = Boolean(bones)
       if (!bones) return
       bones.tip.getWorldPosition(handle.position)
-      const height = 2 * camera.position.distanceTo(handle.position) * Math.tan((camera.fov * Math.PI) / 360)
+      const height = camera instanceof THREE.OrthographicCamera
+        ? (camera.top - camera.bottom) / camera.zoom
+        : 2 * camera.position.distanceTo(handle.position) * Math.tan((camera.fov * Math.PI) / 360)
       handle.scale.setScalar((height * 16) / Math.max(1, canvasHeight))
     })
   }

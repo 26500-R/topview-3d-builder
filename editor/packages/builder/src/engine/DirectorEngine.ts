@@ -1,10 +1,11 @@
+import type { EditorViewDirection } from './interact/camera/axisView'
 import type { DirectorDocument, DraftNode } from '../contract/types'
 import type { FCurveSet } from '../evaluate/curves/FCurveSet'
 import type { UserKeys } from '../evaluate/curves/KeyframeTrack'
 import type { EngineEventMap, EngineEventName } from './core/EventBus'
 import type { ViewportNavPickHandlers } from './interact/ViewportNavigation'
 import type { ContainerScreenRect } from './interact/selectionBox'
-import type { GizmoDuplicateItem } from './interact/UnifiedGizmo'
+import type { GizmoDuplicateItem, GizmoHoverInfo } from './interact/UnifiedGizmo'
 import type { PoseLibraryBank } from '../data/poseLibraryBank'
 
 export interface NodeSnapshot {
@@ -116,6 +117,8 @@ export interface DirectorEngine {
   seek(frame: number): void
   play(direction?: 'forward' | 'reverse'): void
   pause(): void
+  startAmbient(): void
+  stopAmbient(): void
   invalidate(): void
   on<E extends EngineEventName>(event: E, fn: (payload: EngineEventMap[E]) => void): () => void
 
@@ -136,6 +139,10 @@ export interface DirectorEngine {
   getNodeSnapshot(nodeId: string): NodeSnapshot | null
   captureEditorView(): EditorViewPose | null
   readEditorCameraRotation(): { x: number; y: number; z: number }
+  readEditorViewDirection?(): EditorViewDirection | null
+  /** 主视口按机位取景时的画幅比例；自由视角为 null。变化时发 `camera:frame`。 */
+  readFramedAspect?(): number | null
+  setEditorView?(direction: EditorViewDirection): void
   resetEditorView(): void
   focusNode(nodeId: string): void
   focusNodes(nodeIds: string[]): void
@@ -239,11 +246,14 @@ export interface DirectorEngine {
   gizmoBusy(): boolean
   gizmoAttachedNodeId(): string | null
   gizmoAttachedNodeIds(): string[]
+  gizmoPivot(): { x: number; y: number; z: number } | null
   gizmoHandleHit(ndcX: number, ndcY: number): { name: string; dist: number } | null
   readAttachedTransform(prop: 'position' | 'rotation' | 'scale', nodeId?: string): number[] | null
   gizmoInteractionProp(): 'position' | 'rotation' | 'scale'
   onGizmoDraggingChanged(fn: (dragging: boolean) => void): () => void
   onGizmoObjectChange(fn: () => void): () => void
+  /** 悬停在操作轴手柄上时回调手柄信息（Tooltip 用）；离开手柄回调 null。 */
+  onGizmoHover(fn: (info: GizmoHoverInfo | null) => void): () => void
   addPathNode(node: DraftNode): void
   syncPathNodes(): void
   refreshPathNode?(nodeId: string): void

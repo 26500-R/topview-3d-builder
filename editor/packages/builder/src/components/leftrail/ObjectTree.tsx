@@ -4,12 +4,12 @@ import { useT } from '../../locale'
 import { buildNodeSelection, nodeIdsOf, toggleNodeIds } from '../../stores/nodeSelection'
 import { cx } from '../common/cx'
 import { Tooltip } from '../common/Tooltip'
-import { IconCamera, IconCharacter, IconEye, IconEyeOff, IconLock, IconObject, IconProp, IconScene, IconUnlock } from './icons'
+import { IconCamera, IconCharacter, IconEye, IconEyeOff, IconLock, IconObject, IconProp, IconUnlock } from './icons'
 import { SearchField } from './SearchField'
 import { buildObjectRows, treeIconKind, type TreeRow } from './utils'
 
 function RowIcon({ kind }: { kind: ReturnType<typeof treeIconKind> }): ReactElement {
-  if (kind === 'scene') return <IconScene />
+  if (kind === 'scene') return <IconObject className="t3d-leftrail-tree-scene-icon" />
   if (kind === 'character') return <IconCharacter />
   if (kind === 'camera') return <IconCamera />
   if (kind === 'prop') return <IconProp />
@@ -24,7 +24,7 @@ export function ObjectTree(): ReactElement {
   const selection = useStore((s) => s.selection)
   const film = useStore((s) => s.workspaceMode === 'film')
   const writeLocked = useStore((s) => s.writeLocked)
-  const { select, setNodeFlags } = useStore()
+  const { select, setNodeFlags, openInspector } = useStore()
   const rows = buildObjectRows(doc?.content.nodes ?? [], query, t)
   const selectedIds = new Set(nodeIdsOf(selection))
 
@@ -36,7 +36,7 @@ export function ObjectTree(): ReactElement {
           <TreeRowView
             key={row.id}
             row={row}
-            selected={row.type !== 'scene' && selectedIds.has(row.id)}
+            selected={row.type === 'scene' ? selection == null : selectedIds.has(row.id)}
             sceneLabel={t('library.sceneRoot')}
             hideLabel={t('library.hide')}
             showLabel={t('library.show')}
@@ -52,9 +52,11 @@ export function ObjectTree(): ReactElement {
               if (shiftKey) {
                 const current = selection?.kind === 'node' ? selection : null
                 select(buildNodeSelection(toggleNodeIds(current?.nodeIds, current?.nodeId, row.id)))
+                openInspector()
                 return
               }
               select(buildNodeSelection([row.id]))
+              openInspector()
             }}
             onToggleVisible={() => {
               if (film || !row.node) return
@@ -101,7 +103,7 @@ function TreeRowView({
   return (
     <div
       className={cx('t3d-leftrail-tree-row', selected && 't3d-leftrail-tree-row-active')}
-      style={{ paddingLeft: 8 + row.depth * 14 }}
+      style={{ paddingLeft: 10 + row.depth * 14 }}
     >
       <button type="button" className="t3d-leftrail-tree-main" onClick={(e) => onSelect(e.shiftKey)}>
         <RowIcon kind={treeIconKind(row.type)} />
@@ -109,6 +111,7 @@ function TreeRowView({
           {row.type === 'scene' ? sceneLabel : row.name}
         </span>
       </button>
+      {/* 隐藏 / 锁定按钮常驻 DOM，由 CSS 决定显隐：选中、悬停、键盘聚焦到这一行时才出现。 */}
       {row.type !== 'scene' && row.node ? (
         <span className="t3d-leftrail-tree-flags">
           <Tooltip label={hidden ? showLabel : hideLabel} side="top">

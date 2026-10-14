@@ -22,8 +22,8 @@ export const FILM_TIMELINE_HEIGHT_MIN = 390
 // 上限按「机位面板 + 轨道刚好被片段填满」定：再高只会在片段上下留空带。
 export const FILM_TIMELINE_HEIGHT_MAX = 530
 export const FILM_TIMELINE_HEIGHT_DEFAULT = 410
-/** 内容区 248 + 四周 padding 12 + 右边框 1 */
-export const CONTENT_WIDTH_DEFAULT = 273
+/** 内容区 216 + 左右 padding 12 + 右边框 1 */
+export const CONTENT_WIDTH_DEFAULT = 241
 export const CONTENT_WIDTH_MIN = 180
 export const CONTENT_WIDTH_MAX = 360
 export const INSPECTOR_WIDTH_MIN = 220
@@ -46,7 +46,7 @@ export class EditorStore {
   clipMovePreview: ClipMovePreview | null = null
   clipResizePreview: ClipResizePreview | null = null
   draftId: string
-  loadStatus = '加载草稿…'
+  loadStatus = 'Loading draft…'
   ready = false
   playing = false
   activeCameraId: string | null = null
@@ -57,8 +57,9 @@ export class EditorStore {
   chainCameraMotion = false
   pxPerFrame = 1.5
   exporting = false
-  libraryOpen = true
-  libraryTab: LibraryTab = 'character'
+  libraryOpen = false
+  libraryTab: LibraryTab = 'object'
+  libraryFlash = 0
   libraryContentWidth = CONTENT_WIDTH_DEFAULT
   inspectorOpen = true
   inspectorContentWidth = INSPECTOR_WIDTH_DEFAULT
@@ -75,16 +76,22 @@ export class EditorStore {
   poseEditingId: string | null = null
   /** 第一人称操控中的相机 id；null 表示未进入 */
   cameraPilotId: string | null = null
+  cameraPilotSaved: { cameraId: string; savedAt: number } | null = null
   pathEditingId: string | null = null
   pathEditPointIndex: number | null = null
   lookAtPickingId: string | null = null
   /** 轨迹「点选绑定」中的路径 id */
   pathApplyPickingId: string | null = null
+  /** 「放在对象上」点选中的被放置节点 id */
+  placeOnSupportPickingId: string | null = null
   cameraAimReleaseVersion = 0
   cameraMotionDragNoticeVersion = 0
+  cameraMotionDragCameraId: string | null = null
+  pathBindMoveNodeId: string | null = null
+  pathBindMoveNoticeVersion = 0
   gizmoMode: GizmoMode = 'translate'
   pathDrawMode = false
-  pathDrawStyle: PathDrawStyle = 'draw'
+  pathDrawStyle: PathDrawStyle = 'click'
   pathDrawPoints: [number, number, number][] = []
   saveState: SaveState = 'idle'
   saveError: string | null = null
@@ -132,6 +139,7 @@ export class EditorStore {
       exporting: observable,
       libraryOpen: observable,
       libraryTab: observable,
+      libraryFlash: observable,
       libraryContentWidth: observable,
       inspectorOpen: observable,
       inspectorContentWidth: observable,
@@ -145,14 +153,23 @@ export class EditorStore {
       followMode: observable,
       poseEditingId: observable,
       cameraPilotId: observable,
+      cameraPilotSaved: observable.ref,
+      notifyCameraPilotSaved: action.bound,
       pathEditingId: observable,
       pathEditPointIndex: observable,
       lookAtPickingId: observable,
       pathApplyPickingId: observable,
+      placeOnSupportPickingId: observable,
       cameraAimReleaseVersion: observable,
       notifyCameraAimReleased: action.bound,
       cameraMotionDragNoticeVersion: observable,
+      cameraMotionDragCameraId: observable,
       notifyCameraMotionDragBlocked: action.bound,
+      dismissCameraMotionDragNotice: action.bound,
+      pathBindMoveNodeId: observable,
+      pathBindMoveNoticeVersion: observable,
+      notifyPathBindMoveBlocked: action.bound,
+      dismissPathBindMoveNotice: action.bound,
       gizmoMode: observable,
       pathDrawMode: observable,
       pathDrawStyle: observable,
@@ -201,8 +218,10 @@ export class EditorStore {
       setExporting: action.bound,
       toggleLibrary: action.bound,
       setLibraryTab: action.bound,
+      flashLibraryTab: action.bound,
       setLibraryContentWidth: action.bound,
       toggleInspector: action.bound,
+      openInspector: action.bound,
       setInspectorContentWidth: action.bound,
       toggleTimeline: action.bound,
       toggleTimelinePanel: action.bound,
@@ -219,6 +238,7 @@ export class EditorStore {
       setPathEditPointIndex: action.bound,
       setLookAtPickingId: action.bound,
       setPathApplyPickingId: action.bound,
+      setPlaceOnSupportPickingId: action.bound,
       setGizmoMode: action.bound,
       setPathDrawModeFlag: action.bound,
       setPathDrawStyleFlag: action.bound,
@@ -233,23 +253,29 @@ export class EditorStore {
     this.playing = false
     this.activeCameraId = null
     this.selection = null
-    this.libraryOpen = true
-    this.libraryTab = 'character'
+    this.libraryOpen = false
+    this.libraryTab = 'object'
+    this.inspectorOpen = true
     this.libraryContentWidth = CONTENT_WIDTH_DEFAULT
     this.clipMovePreview = null
     this.clipResizePreview = null
     this.followMode = false
     this.poseEditingId = null
     this.cameraPilotId = null
+    this.cameraPilotSaved = null
     this.pathEditingId = null
     this.pathEditPointIndex = null
     this.lookAtPickingId = null
     this.pathApplyPickingId = null
+    this.placeOnSupportPickingId = null
     this.cameraAimReleaseVersion = 0
     this.cameraMotionDragNoticeVersion = 0
+    this.cameraMotionDragCameraId = null
+    this.pathBindMoveNodeId = null
+    this.pathBindMoveNoticeVersion = 0
     this.pathDrawMode = false
     this.pathDrawPoints = []
-    this.loadStatus = '加载草稿…'
+    this.loadStatus = 'Loading draft…'
     this.saveState = 'idle'
     this.saveError = null
     this.saveErrorDetail = null
@@ -335,12 +361,23 @@ export class EditorStore {
     this.libraryOpen = true
   }
 
+  /** 切到指定库页签并让左侧面板闪一次，给快捷入口做「已打开」反馈 */
+  flashLibraryTab(tab: LibraryTab): void {
+    this.setLibraryTab(tab)
+    this.libraryFlash += 1
+  }
+
   setLibraryContentWidth(w: number): void {
     this.libraryContentWidth = Math.min(CONTENT_WIDTH_MAX, Math.max(CONTENT_WIDTH_MIN, Math.round(w)))
   }
 
   toggleInspector(): void {
     this.inspectorOpen = !this.inspectorOpen
+  }
+
+  /** 点中场景物体后展开属性栏；之后保持打开，直到用户自己收起。 */
+  openInspector(): void {
+    this.inspectorOpen = true
   }
 
   setInspectorContentWidth(w: number): void {
@@ -398,6 +435,11 @@ export class EditorStore {
 
   setCameraPilotId(id: string | null): void {
     this.cameraPilotId = id
+    if (id) this.cameraPilotSaved = null
+  }
+
+  notifyCameraPilotSaved(cameraId: string): void {
+    this.cameraPilotSaved = { cameraId, savedAt: Date.now() }
   }
 
   setPathEditingIdFlag(id: string | null): void {
@@ -417,12 +459,30 @@ export class EditorStore {
     this.pathApplyPickingId = id
   }
 
+  setPlaceOnSupportPickingId(id: string | null): void {
+    this.placeOnSupportPickingId = id
+  }
+
   notifyCameraAimReleased(): void {
     this.cameraAimReleaseVersion += 1
   }
 
-  notifyCameraMotionDragBlocked(): void {
+  notifyCameraMotionDragBlocked(cameraId?: string): void {
+    this.cameraMotionDragCameraId = cameraId ?? null
     this.cameraMotionDragNoticeVersion += 1
+  }
+
+  dismissCameraMotionDragNotice(): void {
+    this.cameraMotionDragCameraId = null
+  }
+
+  notifyPathBindMoveBlocked(nodeId: string): void {
+    this.pathBindMoveNodeId = nodeId
+    this.pathBindMoveNoticeVersion += 1
+  }
+
+  dismissPathBindMoveNotice(): void {
+    this.pathBindMoveNodeId = null
   }
 
   setGizmoMode(m: GizmoMode): void {

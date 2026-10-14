@@ -13,7 +13,7 @@ export function useDraftLifecycle(): void {
       } catch (e) {
         if (cancelled) return
         console.error(e)
-        session.setLoadStatus(`加载失败: ${e instanceof Error ? e.message : String(e)}`)
+        session.setLoadStatus(`Loading failed: ${e instanceof Error ? e.message : String(e)}`)
       }
     })()
     return () => {

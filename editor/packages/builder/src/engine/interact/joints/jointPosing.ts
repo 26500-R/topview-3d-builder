@@ -1,5 +1,5 @@
 import { Euler, Plane, Quaternion, Raycaster, Vector3 } from 'three'
-import type { Bone, PerspectiveCamera, Vector2 } from 'three'
+import type { Bone, Camera, Vector2 } from 'three'
 import type { PoseCanonicalKey } from '../../rig/applyPose'
 import { findCanonicalBones } from '../../rig/applyPose'
 
@@ -118,7 +118,7 @@ export function solveJointAim(params: {
   pivot: Bone
   tip: Bone
   restQuat: Quaternion
-  camera: PerspectiveCamera
+  camera: Camera
   ndc: Vector2
   target?: Vector3
 }): JointEuler | null {

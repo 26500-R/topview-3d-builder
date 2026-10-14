@@ -41,7 +41,7 @@ export interface HeadlessRenderer {
 function canvasToPng(canvas: HTMLCanvasElement): Promise<Blob> {
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => {
-      if (!blob) reject(new Error('canvas.toBlob 返回 null'))
+      if (!blob) reject(new Error('Image capture failed: no image data was generated'))
       else resolve(blob)
     }, 'image/png')
   })
@@ -64,14 +64,14 @@ export function createHeadlessRenderer(options: HeadlessRendererOptions): Headle
     },
     async renderFrame(frame, opts) {
       const doc = stage.doc
-      if (!doc) throw new Error('headless renderer 尚未 load')
+      if (!doc) throw new Error('Headless renderer has not loaded')
       const cameraId =
         opts?.cameraId ??
         doc.content.activeShotCameraNodeId ??
         doc.content.nodes.find((n) => n.type === 'camera')?.id
-      if (!cameraId) throw new Error('文档没有可用相机')
+      if (!cameraId) throw new Error('Document has no camera')
       const cam = stage.getCameraForExport(cameraId)
-      if (!cam) throw new Error(`找不到相机 ${cameraId}`)
+      if (!cam) throw new Error(`Camera not found: ${cameraId}`)
       renderExportFrame(
         {
           stage,
@@ -91,7 +91,7 @@ export function createHeadlessRenderer(options: HeadlessRendererOptions): Headle
     },
     evaluate(frame) {
       const doc = stage.doc
-      if (!doc) throw new Error('headless renderer 尚未 load')
+      if (!doc) throw new Error('Headless renderer has not loaded')
       evaluateFrame(sceneFromDocument(doc, { fcurves: stage.fcurves }), frame, snapshot)
       return snapshot
     },

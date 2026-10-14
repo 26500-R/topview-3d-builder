@@ -2,6 +2,7 @@
 // 环境沿用 load 的默认（灯光/网格必建，地面由 display.groundVisible 控制）。
 // 主相机姿态由调用方传入，contract 不硬抄机位库。
 import { DEFAULT_ASPECT_RATIO } from './aspectRatio'
+import { DEFAULT_GROUND_OPACITY } from './groundOpacity'
 import { DEFAULT_SKY_COLOR } from './skyColor'
 import type { DirectorDocument, DraftNode, Vec3 } from './types'
 
@@ -56,7 +57,7 @@ export function makeEmptyDraft(
           characterLabelsVisible: true,
           groundVisible: true,
           groundHeight: 0,
-          groundOpacity: 1,
+          groundOpacity: DEFAULT_GROUND_OPACITY,
         },
       },
       asset: { motionPath: [] },

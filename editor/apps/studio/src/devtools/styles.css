@@ -3,7 +3,7 @@
   right: 16px;
   bottom: 16px;
   z-index: 10000;
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
+  font-family: var(--t3d-font-sans);
   font-size: 13px;
   color: #e8e8e8;
 }

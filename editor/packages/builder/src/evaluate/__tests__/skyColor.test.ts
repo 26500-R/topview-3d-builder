@@ -26,11 +26,18 @@ const PROP: DraftNode = {
   prop: { category: 'box' },
 }
 
-test('legacy package default hydrates to RGB 30,30,30', () => {
+test('legacy package default hydrates to RGB 13,13,13', () => {
   const doc = makeEmptyDraft('sky', 30, 120, CAM)
   doc.content.environment.background.skyColor = '#060608'
   hydrateSkyColor(doc)
-  assert.equal(doc.content.environment.background.skyColor, '#1e1e1e')
+  assert.equal(doc.content.environment.background.skyColor, '#0d0d0d')
+})
+
+test('previous package default RGB 30,30,30 hydrates to RGB 13,13,13', () => {
+  const doc = makeEmptyDraft('sky', 30, 120, CAM)
+  doc.content.environment.background.skyColor = '#1e1e1e'
+  hydrateSkyColor(doc)
+  assert.equal(doc.content.environment.background.skyColor, '#0d0d0d')
 })
 
 test('empty draft sky is the package default', () => {
