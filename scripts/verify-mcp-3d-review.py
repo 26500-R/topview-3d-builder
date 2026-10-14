@@ -32,6 +32,7 @@ class Client:
     def __init__(self, root, token, version, client):
         self.url = root.rstrip('/') + '/topview-browser/mcp'
         self.version, self.counter, self.sid = version, 0, None
+        self.client = client
         self.headers = {'Authorization': 'Bearer ' + token, 'Accept': 'application/json, text/event-stream',
                         'MCP-Protocol-Version': version, 'X-Topview-Plugin-Client': client,
                         'X-Topview-Plugin-Version': '0.1.6'}
@@ -48,6 +49,7 @@ class Client:
 
     def rpc(self, method, params):
         self.counter += 1
+        print(self.version, self.client, method, params.get('name', ''), flush=True)
         headers, params = dict(self.headers), dict(params)
         if self.version == '2026-07-28' and method != 'initialize':
             headers['MCP-Method'] = method
@@ -65,8 +67,8 @@ class Client:
         assert response.status_code in (200, 400, 404), 'HTTP ' + str(response.status_code)
         return response.json()
 
-    def call(self, name, **arguments):
-        return data(self.rpc('tools/call', {'name': name, 'arguments': arguments}))
+    def call(self, tool_name, **arguments):
+        return data(self.rpc('tools/call', {'name': tool_name, 'arguments': arguments}))
 
     def close(self):
         if self.sid:
@@ -78,13 +80,23 @@ def main():
     parser.add_argument('--credentials', type=pathlib.Path, required=True)
     parser.add_argument('--output', type=pathlib.Path, required=True)
     parser.add_argument('--render', type=pathlib.Path)
+    parser.add_argument('--resume', action='store_true', help='Reuse completed checks from the output file')
     args = parser.parse_args()
     credential = json.loads(args.credentials.read_text())
     root, token = credential['resource'], credential['access_token']
     assert root in ('https://mcp-3d-test.topview.ai', 'https://mcp-3d.topview.ai')
     rows = []
+    if args.resume and args.output.exists():
+        previous = json.loads(args.output.read_text())
+        assert previous['endpoint'] == root
+        rows = previous['checks']
+        if args.render:
+            digest = hashlib.sha256(args.render.read_bytes()).hexdigest()
+            assert all(row.get('renderSha256') == digest for row in rows if row['client'] == 'portal')
     for version in ('2025-03-26', '2026-07-28'):
         for host in ('portal', 'codex', 'claude', 'cursor'):
+            if any(row['protocol'] == version and row['client'] == host for row in rows):
+                continue
             client = Client(root, token, version, host)
             try:
                 tools = data(client.rpc('tools/list', {}))['tools']
@@ -98,10 +110,19 @@ def main():
                              'submit_topview_canvas_generation_task', 'topview_generate_image',
                              'open_topview_canvas_test', 'use_tiktok_data'):
                     rejected = client.rpc('tools/call', {'name': name, 'arguments': {}})
-                    assert rejected.get('error', {}).get('code') == -32003, name
+                    error = rejected.get('error', {})
+                    expected_code = -32602 if version == '2026-07-28' else -32003
+                    assert error.get('code') == expected_code, name
+                    assert error.get('message') == 'Tool is unavailable in Topview 3D Builder', name
                 invalid = client.rpc('tools/call', {'name': 'prepare_topview_canvas_media_upload',
                         'arguments': {'canvasId': 'invalid-review-id', 'fileName': 'test.png', 'fileSize': -1}})
-                assert invalid.get('error', {}).get('code') == -32602
+                if version == '2026-07-28':
+                    result = invalid.get('result', {})
+                    assert result.get('isError') is True
+                    error_text = ' '.join(x.get('text', '') for x in result.get('content', []))
+                    assert '/fileSize' in error_text and 'minimum' in error_text
+                else:
+                    assert invalid.get('error', {}).get('code') == -32602
                 row = {'protocol': version, 'client': host, 'catalog': 'six tools with expected booleans',
                        'deniedTools': 7, 'invalidArguments': 'rejected',
                        'definitionsSha256': hashlib.sha256(json.dumps(tools, sort_keys=True).encode()).hexdigest()}
@@ -115,8 +136,20 @@ def main():
                     assert 200 <= uploaded.status_code < 300, 'Upload failed'
                     node = client.call('create_topview_canvas_media_node', canvasId=cid, mediaType='image',
                                        url=upload['objectKey'], mimeType=upload['mimeType'], title='Local 3D reference', x=0, y=0)
+                    args.output.parent.mkdir(parents=True, exist_ok=True)
+                    journal = args.output.with_suffix('.writes.json')
+                    writes = json.loads(journal.read_text()) if journal.exists() else []
+                    writes.append({'protocol': version, 'canvasId': cid, 'createdNodeIds': node.get('createdNodeIds', []), 'nodeId': node.get('nodeId')})
+                    journal.write_text(json.dumps(writes, indent=2))
                     state = client.call('get_topview_canvas_state', canvasId=cid)
-                    assert upload['objectKey'] in json.dumps(state), 'Uploaded media missing from readback'
+                    created_ids = set(node.get('createdNodeIds', []))
+                    if node.get('nodeId'):
+                        created_ids.add(node['nodeId'])
+                    assert created_ids, 'Creation did not return a node ID'
+                    matches = [n for n in state.get('nodes', []) if n.get('id') in created_ids]
+                    assert len(matches) == len(created_ids), 'Created node missing from readback'
+                    assert all(n.get('type') == 'image' and n.get('x') == 0 and n.get('y') == 0 for n in matches)
+                    row['createdNodeIds'] = sorted(created_ids)
                     link = client.call('get_topview_canvas_web_link', canvasId=cid)
                     canvases = client.call('list_topview_canvases', limit=20)
                     assert cid in json.dumps(canvases), 'New Canvas missing from list'

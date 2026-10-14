@@ -25,7 +25,7 @@ Playwright and Chromium.
 ## Installing topview-3d-cli
 
 Install once per machine and reuse that install in every project. Use this skill's pinned
-version, 0.1.5. The shared environment is:
+version, 0.1.6. The shared environment is:
 
 | System | Environment | Command |
 | --- | --- | --- |
