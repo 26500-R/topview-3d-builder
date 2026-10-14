@@ -256,4 +256,4 @@ If Topview 3D Builder helps your work, **give the repo a ⭐** and share what yo
 
 ## Acknowledgements
 
-- [Alibaba NLP](https://github.com/Alibaba-NLP)
+- [QwenLM](https://github.com/QwenLM)
