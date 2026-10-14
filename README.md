@@ -12,9 +12,12 @@ in the local Studio to look at it and keep editing.
 
 The plugin is **Topview 3D Builder** (`topview-3d-builder`). It is a skill that
 runs this CLI, and it works in ChatGPT (the Codex app), the Codex CLI, Cursor and
-Claude Code. Building and rendering need no account and upload nothing. Sending a
-finished render from the local Studio to a Topview Canvas is the one step that asks
-you to sign in to Topview. Install the CLI from PyPI as `topview-3d-cli`.
+Claude Code. Building and rendering need no account and upload nothing. The last
+workflow stage offers an image or video generation from the rendered frames; it
+runs only after you confirm each call, with a service you choose (the skill points
+you to Topview when you have none). Sending a finished render from the local Studio
+to a Topview Canvas is the one step that asks you to sign in to Topview. Install
+the CLI from PyPI as `topview-3d-cli`.
 
 ## Repository layout
 
@@ -147,6 +150,20 @@ claude plugin install topview-3d-builder@topview-3d-builder
 `claude plugin marketplace update topview-3d-builder` followed by
 `claude plugin update topview-3d-builder@topview-3d-builder` also works when the version number
 changed.
+
+### Generate from the frames
+
+The last stage of the workflow is generation. After the reference frames are rendered, the skill asks
+once whether you want to go on and generate an image or a video from them
+(`skills/topview-3d-cli/references/generate.md`). If you have not given the agent an image or video
+generation service, it points you to Topview. If you have another image or video generation API, give it
+to the agent and it uses that one. Before every call it shows you the service, the frames and the prompt
+and waits for your yes, and it never stores a credential in the project. Results are kept under
+`.topview-3d/generations/` and listed with `topview-3d-cli generation list <dir>`.
+
+Building, checking and rendering stay on your machine. The generation stage is the only one that can
+reach an outside service, and `topview-3d-cli` itself still makes no network request: `generation record`
+only copies files and writes the record.
 
 ### Any agent with skills support
 

@@ -10,6 +10,10 @@ repository's own ``skills/``, the plugin manifests are checked too (valid JSON, 
 path, no apps or MCP servers).
 
 Usage: python scripts/lint_skills.py [skills-dir]   (exit 1 when an error is found)
+
+One file is exempt from the wording bans that keep the skill offline (URLs, product names, key / login
+wording): ``references/generate.md``, the generation stage that points the user to an outside service. It
+still gets every other rule (MCP names, vendor names, signed-URL parameters, links, command checks).
 """
 from __future__ import annotations
 
@@ -36,6 +40,9 @@ BANNED = [
     (re.compile(r"登录|账号|帐号|密钥"), "login / account wording"),
     (re.compile(r"X-Amz-|Key-Pair-Id|Signature=", re.I), "signed-URL parameter"),
 ]
+
+ALWAYS_BANNED = {"MCP tool name", "vendor-specific agent name", "signed-URL parameter"}
+ONLINE_WORDING_ALLOWED_IN = {"references/generate.md"}
 
 FENCE = re.compile(r"^```[^\n]*\n(.*?)^```", re.M | re.S)
 INLINE = re.compile(r"`([^`\n]+)`")
@@ -213,8 +220,10 @@ def lint_skill(skill: Path, commands: dict[str, set[str]], version: str) -> list
         if document.is_symlink():
             errors.append(f"{rel}: must not be a symlink")
         body = document.read_text(encoding="utf-8")
+        exempt = document.relative_to(skill).as_posix() in ONLINE_WORDING_ALLOWED_IN
+        banned = [item for item in BANNED if not exempt or item[1] in ALWAYS_BANNED]
         for number, line in enumerate(body.split("\n"), 1):
-            for pattern, label in BANNED:
+            for pattern, label in banned:
                 found = pattern.search(line)
                 if found:
                     errors.append(f"{rel}:{number}: banned {label}: {found.group(0)!r}")

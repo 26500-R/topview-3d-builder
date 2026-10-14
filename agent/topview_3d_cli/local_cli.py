@@ -18,6 +18,7 @@ from topview_3d_cli.local_assets import asset_catalog, builtin_asset_root, impor
 from topview_3d_cli.local_bom import bom_checkpoint, bom_get
 from topview_3d_cli.local_catalog import asset_search, asset_show, pose_catalog
 from topview_3d_cli.local_edit import load_spec, node_batch, pose_batch
+from topview_3d_cli.local_generation import generation_list, generation_record, generation_show
 from topview_3d_cli.local_errors import EXIT_INVALID_INPUT, EXIT_OK, exit_code_for
 from topview_3d_cli.local_project import (
     CLI_VERSION,
@@ -315,6 +316,15 @@ def _parser() -> argparse.ArgumentParser:
     show.add_argument("run_id", nargs="?", help="default: the latest run")
     show.add_argument("--frame", type=int, help="a single frame instead of the contact sheet")
 
+    generation = group("generation", "images and videos generated from render frames (local records only)")
+    record = generation.add_parser("record", help="store a generation's outputs and provenance in the project")
+    record.add_argument("directory")
+    record.add_argument("spec", help="{\"kind\", \"provider\", \"prompt\", \"references\", \"outputs\"} JSON file, or -")
+    generation.add_parser("list").add_argument("directory")
+    shown = generation.add_parser("show", help="one recorded generation with absolute output paths")
+    shown.add_argument("directory")
+    shown.add_argument("generation_id", nargs="?", help="default: the latest generation")
+
     camera = group("camera", "camera helpers")
     camera.add_parser("presets", help="camera preset ids for add_camera")
 
@@ -438,6 +448,12 @@ def _dispatch(args: argparse.Namespace) -> dict[str, Any]:
         if sub == "list":
             return renders_list(args.directory)
         return renders_show(args.directory, args.run_id, frame=args.frame)
+    if command == "generation":
+        if sub == "record":
+            return generation_record(args.directory, load_spec(args.spec, "GENERATION_INVALID"))
+        if sub == "list":
+            return generation_list(args.directory)
+        return generation_show(args.directory, args.generation_id)
     if command == "camera":
         return camera_presets()
     if command == "bom":

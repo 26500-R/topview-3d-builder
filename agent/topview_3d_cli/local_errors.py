@@ -36,6 +36,8 @@ ERROR_CODES: dict[str, tuple[int, str]] = {
     "DIRECTOR_NODE_NOT_FOUND": (2, "A referenced node does not exist (the message names it; batches add details.index)."),
     "DOCUMENT_ENTITY_NOT_FOUND": (2, "`document get --entity` found no node, clip or fcurves shard with that id."),
     "RENDER_NOT_FOUND": (2, "No such render run or frame image in .topview-3d/renders."),
+    "GENERATION_INVALID": (2, "`generation record` spec is not JSON or fails its schema (kind, provider, prompt, references, outputs)."),
+    "GENERATION_NOT_FOUND": (2, "No such generation in .topview-3d/generations."),
     "BOM_CHECKPOINT_INVALID": (2, "`bom checkpoint` patch fails its schema or repeats/conflicts ids."),
     "BOM_TOO_LARGE": (2, "The merged BOM would exceed 64 KiB."),
     # Operation shape (nothing is applied)
@@ -75,6 +77,7 @@ ERROR_CODES: dict[str, tuple[int, str]] = {
     "POSE_ASSET_INVALID": (1, "A pose file is larger than 1 MiB or lacks hips and 1-256 bone quaternions."),
     "BOM_JSON_INVALID": (1, ".topview-3d/bom.json is corrupt; fix or delete it."),
     "RENDER_IMAGE_INVALID": (1, "A render image is not a PNG or no longer matches the sha256 in render.json."),
+    "GENERATION_FILE_INVALID": (1, "A recorded generation output is missing or no longer matches its sha256."),
     "ASSET_FILE_MISSING": (1, "A manifest entry points to a file that does not exist."),
     "ASSET_NOT_AVAILABLE": (1, "A character or prop model in the document has no local asset (see details)."),
     "RUNTIME_MISSING": (1, "The renderer runtime is missing (incomplete install, or an unbuilt checkout)."),

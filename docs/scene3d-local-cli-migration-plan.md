@@ -23,8 +23,14 @@ skills/topview-3d-cli (SKILL.md + references/)
         -> Node + Playwright renderer          (PNG output inside the project)
 ```
 
-- There is no MCP server, no login, no account, and no API key. The plugin never calls Topview
-  services. Nothing is sent anywhere, and there is **no telemetry**.
+- There is no MCP server, no login, no account, and no API key in the CLI or in the building, checking
+  and rendering stages. `topview-3d-cli` never calls Topview services and makes no network request, and
+  there is **no telemetry**.
+- Amendment: the last workflow stage (`skills/topview-3d-cli/references/generate.md`) offers an image or
+  video generation from the rendered frames. It is the only stage that may reach an outside service. It
+  runs only after the user confirms each call, with a service the user supplies (it points to Topview when
+  the user has none), and it never stores a credential in the project. `generation record` only copies
+  files and writes `.topview-3d/generations/`.
 - Python 3.11 is the runtime for document rules and operation planning.
 - Node and Playwright remain the renderer; a Node-only rewrite is optional and not planned.
 - Docker is not part of the execution path.
@@ -607,11 +613,11 @@ Acceptance:
   5. "Delete the box and everything that animates it, then validate the project."
 
   Three negative:
-  1. "Log into my Topview account and sync my canvas." Expected: explain that there is no account or
-     online feature.
+  1. "Log into my Topview account and sync my canvas." Expected: explain that the CLI and the scene
+     stages have no account or sync; sending a render to a canvas is done from the local Studio.
   2. "Pull props from the online asset library." Expected: only built-in and user-imported assets.
-  3. "Render a 4K video with a soundtrack." Expected: frames and contact sheets only; say what is
-     possible.
+  3. "Render a 4K video with a soundtrack." Expected: the renderer makes frames and contact sheets only;
+     say what is possible, and offer the generation stage for an image or video from those frames.
 - **Local execution.** Contact OpenAI about the local-execution dependency before submitting,
   ideally before stage 10.
 - **No telemetry**, now or later.
@@ -690,6 +696,7 @@ Still to do before publishing:
   the published package.
 - `topview-3d-cli doctor --json` reports every dependency and exits 0.
 - Headless render produces PNGs under the project directory.
-- The skills and manifests contain no MCP, login, key, or telemetry references.
+- The skills and manifests contain no MCP or telemetry references. Login, key and online-service wording
+  appears only in `references/generate.md`; `scripts/lint_skills.py` enforces that.
 - Python, builder (`test:evaluate`), and director-cli tests stay green.
 

@@ -3,7 +3,9 @@ name: topview-3d-cli
 description: >
   Block out, edit, check and render 3D staging scenes on the local machine with the topview-3d-cli command:
   simple primitive props, built-in mannequin characters, static library poses, story cameras plus a
-  bird's-eye layout camera, numerical checks and PNG renders, all offline in a project directory.
+  bird's-eye layout camera, numerical checks and PNG renders; building and rendering run offline in a
+  project directory. After the renders it offers an image or video generation from the frames, run only
+  once the user confirms.
   Use when the user asks to stage, block out, lay out or storyboard a scene in 3D; place people,
   props or cameras; pose characters; check framing, grounding, spacing or collisions; render views
   of a scene as a reference for video generation; or works in a directory that contains
@@ -107,6 +109,19 @@ Read the reference for a stage once per session, before its first command:
 | 7. Edit | Change only what was asked; batch syntax; keyframes | `references/edit.md` |
 | 8. Check | Numbers, renders, look at the PNGs, revise | `references/checks.md` |
 | 9. Studio | Open the finished scene in the local Studio with the In-App Browser | `references/doctor-browser.md` |
+| 10. Generate | Once the video is rendered, write the generation prompt automatically, show it, then ask whether to generate; confirm every call; record the result | `references/generate.md`, `references/video-prompt.md` |
+
+## After the frames are ready
+
+Stage 10 is part of every workflow that ends in a rendered video or frames: do not close the session on
+the renders without it. Read `references/generate.md` and follow it. As soon as the video is rendered, you
+write the generation prompt yourself, without being asked, by following `references/video-prompt.md`,
+show it to the user, and only then ask whether to generate. On a yes it helps them pick a service and
+records the result. A video generation uses the rendered or exported video as its reference.
+
+Building, checking and rendering stay offline. Stage 10 is the only stage that may reach an outside
+service, and only for a call the user has confirmed in that exact form. Never contact a generation
+service from any other stage.
 
 Asset search rules for props, characters and poses are in `references/asset-selection.md`.
 Installation, the browser and sandbox limits are in `references/doctor-browser.md`.
