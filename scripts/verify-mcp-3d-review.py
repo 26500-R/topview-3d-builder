@@ -39,10 +39,21 @@ class Client:
         self.meta = {'io.modelcontextprotocol/protocolVersion': version,
                      'io.modelcontextprotocol/clientCapabilities': {},
                      'io.modelcontextprotocol/clientInfo': {'name': client, 'version': '3d-review'}}
+        if version == '2026-07-28':
+            discovery = data(self.rpc('server/discover', {}))
+            assert version in discovery['supportedVersions']
+            assert discovery['_meta']['io.modelcontextprotocol/serverInfo']['name'] == 'Topview 3D Builder'
+            assert 'resources' not in discovery['capabilities']
+            assert 'extensions' not in discovery['capabilities']
+            return
         result = data(self.rpc('initialize', {'protocolVersion': version, 'capabilities': {},
                                              'clientInfo': {'name': client, 'version': '3d-review'}}))
-        assert result['protocolVersion'] == version
-        if version != '2026-07-28':
+        negotiated = result['protocolVersion']
+        assert negotiated in ('2024-11-05', '2025-03-26', '2025-06-18', '2025-11-25', '2026-07-28'), 'Unsupported negotiated protocol'
+        self.version = negotiated
+        self.headers['MCP-Protocol-Version'] = negotiated
+        self.meta['io.modelcontextprotocol/protocolVersion'] = negotiated
+        if negotiated != '2026-07-28':
             response = requests.post(self.url, headers=self.headers,
                                      json={'jsonrpc': '2.0', 'method': 'notifications/initialized'}, timeout=30)
             assert response.status_code in (200, 202, 204)
@@ -111,19 +122,19 @@ def main():
                              'open_topview_canvas_test', 'use_tiktok_data'):
                     rejected = client.rpc('tools/call', {'name': name, 'arguments': {}})
                     error = rejected.get('error', {})
-                    expected_code = -32602 if version == '2026-07-28' else -32003
+                    expected_code = -32602 if client.version == '2026-07-28' else -32003
                     assert error.get('code') == expected_code, name
                     assert error.get('message') == 'Tool is unavailable in Topview 3D Builder', name
                 invalid = client.rpc('tools/call', {'name': 'prepare_topview_canvas_media_upload',
                         'arguments': {'canvasId': 'invalid-review-id', 'fileName': 'test.png', 'fileSize': -1}})
-                if version == '2026-07-28':
+                if client.version == '2026-07-28':
                     result = invalid.get('result', {})
                     assert result.get('isError') is True
                     error_text = ' '.join(x.get('text', '') for x in result.get('content', []))
                     assert '/fileSize' in error_text and 'minimum' in error_text
                 else:
                     assert invalid.get('error', {}).get('code') == -32602
-                row = {'protocol': version, 'client': host, 'catalog': 'six tools with expected booleans',
+                row = {'protocol': version, 'negotiatedProtocol': client.version, 'client': host, 'catalog': 'six tools with expected booleans',
                        'deniedTools': 7, 'invalidArguments': 'rejected',
                        'definitionsSha256': hashlib.sha256(json.dumps(tools, sort_keys=True).encode()).hexdigest()}
                 if args.render and host == 'portal':

@@ -18,9 +18,9 @@
 - Studio acceptance initially found missing Draco public assets: `studio open` directly launches Next and skips its `predev` hook. Both installers now run the existing copy-draco script after building. The copied decoder returns HTTP 200, and the native in-app browser displays the mannequin, box and camera preview with no load error. macOS shell syntax checked; PowerShell change reviewed but not executed on Windows.
 - Static compilation of `scripts/verify-mcp-3d-review.py` passes. Authenticated test endpoint verification passed all eight protocol/client-header combinations (Legacy 2025-03-26 and Modern 2026-07-28; portal/codex/claude/cursor). These are HTTP contract tests, not eight native-host UI runs. Each checks the exact six tools, explicit booleans, seven forbidden direct calls, and invalid upload arguments. Both protocol runs completed create Canvas → prepare upload → PUT PNG → create media node → state/list/link verification. Evidence: `dist/review-live-test.json`.
 
-## Still required before production / resubmission
+## Remaining submission step
 
-- Production deployment and repeat acceptance; refresh Portal tool discovery and review cases; submit only after checks complete.
+- Accept the final legal declarations with action-time user confirmation, then submit and verify the resulting review status.
 
 No review-account passwords or bearer tokens are stored in this document, the source tree or upload archive.
 
@@ -34,4 +34,12 @@ Portal repair package 0.1.7 uploaded as a new draft; production verification and
 
 - Portal metadata/skills version 0.1.7 uploaded as a draft. Dedicated review account authorized the new Portal client. The latest MCP scan discovers exactly six tools and reports No findings. Each scanned definition was read through the Portal UI and its three boolean annotations matched the table. Evidence: `dist/review-portal-scanned-definitions.json` and `dist/review-portal-six-tools-no-findings.png`. Not submitted yet.
 - Five positive cases, three negative cases, the supplied demo video URL and per-tool annotation explanations were saved to the new draft. Credentials were saved only in the Portal with explicit prior user approval.
-- Existing production native connector completed create → upload HTTP 200 → media node → state/link for Canvas 95ce8770f8d846dd998f8d0a43f8e8f4, node node_1791959057896_3898e021ad35. However, the dedicated account browser showed Sharing is off. Its connector account/workspace identity is not independently confirmed; this is not accepted as dedicated-account end-to-end proof. A fresh production verifier OAuth flow is pending to resolve the discrepancy.
+- Existing production native connector completed create → upload HTTP 200 → media node → state/link for Canvas 95ce8770f8d846dd998f8d0a43f8e8f4, node node_1791959057896_3898e021ad35. However, the dedicated account browser showed Sharing is off. Its connector account/workspace identity is not independently confirmed; this is not accepted as dedicated-account end-to-end proof. A fresh production verifier was subsequently authorized with the dedicated account and its Personal workspace; its own Canvas is accessible in that account browser. The existing connector mismatch is outside this plugin remediation and its Canvas is excluded from acceptance evidence.
+
+## Final production acceptance
+
+- Direct production endpoint acceptance: all eight protocol/client-header combinations pass, recorded in `dist/review-live-prod-verified.json`. Legacy initialize negotiates the production-supported 2024-11-05 version; the verifier honors the negotiated result. Modern 2026-07-28 uses its independent stateless server/discover handshake, not Legacy initialize. Both handshakes were followed by the exact six-tool and explicit-boolean checks, seven forbidden-call checks and invalid-upload-argument checks.
+- Dedicated account additive round trips passed on both protocols: Legacy Canvas 3019c31ea1da4a86b3065f7e4f8688fe and Modern Canvas db25ef6f0c864ce6b0fb3542f7495c73. The local PNG SHA-256 is e51f4c3ebd742f1b8eb3544eff20fcbd33f13c7a7b88598b773e1ffddb119250. Chrome displays the Legacy Canvas with the mannequin and box and the dedicated account name; screenshot `dist/review-production-canvas-verified.png`. No paid generation or deletion was performed.
+- Portal metadata and skill checks show no findings; MCP scan shows no findings. Six scanned annotations match the source table, including media-node openWorldHint=true. Not live means the draft has not been published, not an endpoint failure.
+- The supplied demo URL responds HTTP 200 with video/mp4. Review details were saved. Final legal declarations and Submit await action-time user confirmation.
+- Source archive packaging check passes: version 0.1.7. Comparison with the uploaded Portal archive shows the same manifest/assets/skills content; only .mcp.json differs for the documented Portal auth schema. CLI stays pinned at 0.1.6.
