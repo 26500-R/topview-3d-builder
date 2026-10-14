@@ -10,14 +10,13 @@ import { setStudioLocale, useStudioLocale } from '../../../src/devtools/localePr
 import { useStudioT } from '../../../src/locale'
 
 function StudioChunkFallback() {
+  const t = useStudioT()
   return (
     <div className="t3d-studio-host">
       <div className="t3d-root">
         <div className="t3d-boot" role="status" aria-live="polite" aria-busy="true">
-          <div className="t3d-boot-progress" aria-hidden="true">
-            <span className="t3d-boot-progress-bar" />
-          </div>
-          <p className="t3d-boot-title">opening</p>
+          <div className="t3d-boot-spinner" aria-hidden="true" />
+          <p className="t3d-boot-title">{t('正在加载 3D Builder…')}</p>
         </div>
       </div>
     </div>
