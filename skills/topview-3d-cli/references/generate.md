@@ -6,9 +6,27 @@ plan the generation follows, not the finished picture. The people are plain mann
 simple shapes.
 
 Everything before this stage runs on the user's machine. This stage is the only one that can reach an
-outside generation service, and only after the user confirms the exact call (Step 3).
+outside generation service, after the user authorizes generation for the current task (Step 3).
 
-## Step 0: write the prompt first, then ask, every time
+## Step 0: write the prompt and reuse existing authorization
+
+This stage overrides the default stage-boundary pauses in `../SKILL.md`. Once the user says yes to
+video generation, or explicitly requests it, proceed through prompt preparation, service selection,
+reference upload, submission, polling, inspection and delivery without asking for permission again.
+Use concise progress updates. A requested revision (for example “replace the car and person with
+these images”) authorizes generating that revised version without another “confirm generation?”
+question. After delivery, offer a relevant revision; do not create unsolicited extra versions.
+Respect a user who stops, pauses or withdraws authorization.
+
+**Key decision point: revised 3D preview.** If the user is unhappy with a generated video and asks
+to change the underlying model, scene, blocking or camera movement, return to those stages first.
+Complete the requested changes, render and inspect the revised preview, and show it with a brief
+explanation of what changed. Then stop and ask: “Would you like me to generate a new realistic video
+from this revised preview, or adjust the scene or camera movement further?” Wait for their choice.
+The prior generation approval does not automatically authorize generation from a revised 3D plan.
+If the user explicitly requested both the revision and regeneration, proceed within that request
+without asking again. Once the next generation round is authorized, its internal steps need no
+further approval prompts. Guidance should explain the next useful action, not multiply permission checks.
 
 As soon as the reference is rendered (a video, or frames for an image), do this without waiting to be
 asked:
@@ -20,14 +38,16 @@ asked:
    and nothing is uploaded yet.
 2. **Show it.** Give the user the finished English prompt block and a short summary of the assumptions
    in their language (spec, camera moves, sound, what is locked to the reference).
-3. **Then ask once** whether to generate from it:
+3. **Ask once only if generation is not already authorized**:
 
    > The reference is ready and the prompt is written above. Do you want to generate an image or a
    > video with it? Say what to change in the prompt first if you want.
 
-- This is part of the workflow: do not skip the prompt, and do not end the session on the renders
-  without asking the question.
-- If the user asks for changes to the prompt, revise it and show it again before asking.
+- Do not skip the prompt. If authorization exists, show it and proceed; do not end the turn waiting
+  for another yes. If authorization is missing, ask the question instead of ending on the renders.
+- If the user requests a direct generated-video revision using the same 3D plan, revise and show the
+  prompt, then generate the requested version directly. A request to edit only the prompt or the 3D
+  preview authorizes that edit only; after a revised 3D preview, use the key decision point above.
 - If the user says no or not now, stop here for this session and keep the prompt in the reply. Ask again
   only when they bring it up.
 - On a yes, go to Step 1 to pick the service. The prompt from this step is reused in Step 2; revise it
@@ -48,12 +68,12 @@ after this check finds nothing usable.
    - Do not open credential files, read environment variables, scan other projects, or call a tool to
      test it. Looking is limited to the tool and skill listings and, when needed, `--help` of a command
      the user has installed.
-   - If you find one or more, tell the user in one short message what you found and what each one can do
-     (image, video, reference video, length), recommend the best fit for a reference-video generation, and
-     ask which to use. Use the chosen one for Step 2 and Step 3. If a tool is not signed in or has no
+   - Reuse the service already selected in this task. Otherwise choose a suitable available service
+     that supports the reference and requested output, and explain the choice briefly. Do not make
+     service selection another approval gate after generation is authorized. Ask only if a material
+     preference or constraint cannot be resolved from context. If a tool is not signed in or has no
      credential, say what it needs; do not look for the credential yourself.
-   - A found tool still follows every rule below: the confirmation of Step 3 for each call, the upload
-     notice, and the record in Step 5.
+   - Keep the upload and cost notices in Step 3 and record the result in Step 5.
 3. **Nothing found, and the user supplied nothing.** Only now recommend Topview.
 
 When there is no usable service from 1 or 2, say this (translated to their language) and stop until they
@@ -69,7 +89,8 @@ anything. The Topview link above is for people who have no such tool; do not sen
 already using `topview-skill`:
 
 1. Check the sign-in state with `auth.py status` from that skill. When it already reports a signed-in
-   user, say which account it is and ask whether that is the one to use before going on.
+   user, state which account will be used and continue. Do not reconfirm the account unless it
+   conflicts with the user's requested account.
 2. Otherwise run `auth.py login`, read the line starting with `URL:` from its output and send that link
    to the user in the chat. Tell them to open it, sign in or register on that page, click Authorize, and
    reply when done. The user may not see this machine, so never say a browser window opened and never
@@ -80,9 +101,9 @@ already using `topview-skill`:
 If `topview-skill` is not installed, give the user the Topview link above and wait; the user can also
 supply another service.
 
-If the user supplies another service, ask what it accepts before planning: text only, one start image,
+If the user supplies another service, inspect its tools or documentation for what it accepts: text only, one start image,
 several reference images, a reference video, video length, aspect ratio. Never assume a service takes
-reference images or a reference video.
+reference images or a reference video. Ask only for information that remains unavailable.
 
 ## Step 2: the reference and the prompt
 
@@ -131,7 +152,7 @@ topview-3d-cli renders show <dir> [runId] --frame 0
   the service to keep the layout, framing and positions of the reference, and not to copy the mannequin
   look or the flat shading.
 
-## Step 3: confirm every call
+## Step 3: one authorization, transparent execution
 
 Before each call to a service, show the user, in plain words and in their language:
 
@@ -145,16 +166,26 @@ Before each call to a service, show the user, in plain words and in their langua
   the module you are about to use and quote its waiting time.
 
 Also say that the reference (the video or the frames) is uploaded to the service. `topview-skill` uploads
-local files by itself when you pass their paths, so the user must know that before agreeing.
+local files by itself when you pass their paths, so disclose this before submitting.
 
-Wait for a clear yes. `topview-skill` can offer to proceed automatically after a first confirmation; do
-not use that here. Every call is confirmed on its own. One confirmation covers only the call you
-described. A retry, another model, a different prompt or another reference is a new call and needs a
-new yes. After a failure, say in one sentence what happened and ask before retrying.
+These details are an execution notice, not a new approval gate. A clear yes to video generation or
+an explicit generation request authorizes the current generation round. Carry that authorization
+across its execution steps and direct requests to revise the generated result using changed prompts
+or appearance references. Do not ask again merely to submit that requested revision. Returning to
+edit the underlying 3D plan is different: show the revised preview and obtain the user's choice to
+generate from it, unless they already explicitly requested both revision and regeneration.
+
+Stay within the requested task and any stated budget, provider or account restrictions. Ask only
+for genuinely missing information or an action outside that scope; do not invent a budget-confirmation
+gate when the user has set no limit. Never purchase credits or create extra variants on your own.
+Before resubmitting after an error, query the existing task to avoid duplicate charges. One retry of
+a confirmed failed attempt is allowed within the task and budget; if it fails again or the submission
+outcome is unknown, report the blocker rather than repeatedly submitting paid jobs. Report actual
+costs, including any difference from the estimate. Higher-priority requirements still apply.
 
 ## Step 4: credentials
 
-Use a credential the user gave you only for the calls they confirmed, in this session. Never write it
+Use a credential the user gave you only for their authorized task, in this session. Never write it
 into the project, a spec file, a prompt, notes, a commit or a message back to the user. If the user has not
 set it as an environment variable, ask them to, instead of pasting it into a command line.
 
@@ -199,8 +230,11 @@ the scene was edited after that generation was made.
 ## Step 6: when the result is not right
 
 - The layout differs from the reference: adjust the prompt first (tighten the Reference lock and the
-  Timeline) and ask again.
+  Timeline). When the user requests a correction, generate the revision under the existing
+  authorization; otherwise offer the correction and wait for a revision request.
 - The blocking itself is wrong (positions, facing, framing): go back to the layout and edit stages
-  (`layout.md`, `edit.md`), change the scene, export a new video and then repeat from Step 2. Do not try
+  (`layout.md`, `edit.md`), change the scene, export and inspect a new preview, then show it and ask
+  whether to generate a new realistic video or make further scene/camera adjustments. Do not submit
+  generation automatically on the old approval; follow the key decision point in Step 0. Do not try
   to fix blocking with the prompt alone.
 - Do not claim a result matches the reference unless you looked at it.

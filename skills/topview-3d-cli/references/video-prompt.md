@@ -15,8 +15,8 @@ every video prompt; do not write a prompt from adjectives alone.
 - The duration, aspect ratio and frame rate come from the exported video (probe it), not from the
   defaults below. The timeline covers the real duration.
 - The master prompt block is English only, as the rules below require. Everything you say around it to
-  the user (the confirmation in Step 3, the assumptions summary) is in the user's language.
-- Show the finished block to the user in Step 3. It is what you send in Step 4.
+  the user (the execution notice in Step 3, the assumptions summary) is in the user's language.
+- Show the finished block to the user in Step 3. Submit that prompt under the task authorization described in `generate.md`; showing it is not a new approval gate.
 
 ## Task
 

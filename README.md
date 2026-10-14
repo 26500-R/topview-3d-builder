@@ -1,8 +1,6 @@
 <p align="center">
-  <img src="logo.png" alt="Topview 3D Builder" width="120" />
+  <img src="topview-3d-builder.svg" alt="Topview 3D Builder" width="360" />
 </p>
-
-<h1 align="center">Topview 3D Builder</h1>
 
 <p align="center"><b>Stop prompting. Start directing.</b></p>
 

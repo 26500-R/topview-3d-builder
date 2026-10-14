@@ -98,6 +98,54 @@ Read them before planning; re-read only after your own writes or a conflict. `to
 
 Read the reference for a stage once per session, before its first command:
 
+### Guide the user at every stage boundary
+
+Core principle: guidance makes the next useful action clear. Pause at creative decision points;
+use progress updates for execution steps inside an already approved action.
+
+By default, complete one stage below, make its result reviewable, then ask whether the user wants
+to continue to the named next stage or revise the current result. Wait for their answer before
+starting that next stage. Do not silently run the entire table and ask only after rendering.
+This applies to new scenes, edits and revisions, including the final delivery.
+Exception: once the user authorizes video generation for the current task, Stage 10 proceeds through
+preparation, service submission and delivery without further stage-boundary approval questions.
+This authorization covers the current generation round, not every future version of the 3D plan.
+If feedback sends the work back to the scene, model, pose or camera stages, complete and verify the
+revised preview, then stop and ask whether to generate from it or adjust it further. Do not carry
+the previous round's yes across this decision point. An explicit request to revise AND regenerate
+already answers that choice; see `references/generate.md`.
+
+- Briefly state what is ready, show the relevant plan, preview or result, and mention any unresolved
+  limitation that affects the next choice. For nonvisual stages, a concise summary is enough.
+- Recommend a concrete next action and explain its purpose in one sentence. End with one clear
+  question in the user's language. Name the actual action and what can be revised, rather than
+  asking only “Continue?” or “What next?”. Examples (written in English; localize when responding):
+  - After the layout plan: “Would you like me to build this scene in 3D, or revise the layout first?”
+  - After scene construction: “Would you like me to set up the camera movement, or modify this scene first?”
+  - After camera setup: “Would you like me to render a preview video, or adjust the camera movement first?”
+  - After the reference and generation prompt are ready: “Would you like to proceed to video generation,
+    revise this scene, or edit the generation prompt first?”
+  - After revising the 3D preview following feedback: “The revised camera preview is ready. Would you
+    like me to generate a new realistic video from it, or adjust the scene or camera movement further?”
+  Use only options appropriate to the current result and available capabilities. If the reference
+  video is not ready, offer to render or export it before offering the generation handoff.
+- A stage is a user-facing milestone, not each CLI call. Finish the reads, measurements, dry-runs,
+  rendering and necessary corrections that make that stage reviewable before asking. Do not ask
+  permission for each tool invocation or stop on an unverified intermediate result.
+- If the user requests changes, make and verify those changes within the current stage, present the
+  updated result, then offer the next-stage-or-revise choice again. A request to revise does not by
+  itself authorize proceeding to later stages. Silence is not an answer.
+- Apply only stages relevant to the request: an edit does not restart completed setup or rebuild
+  unrelated objects. For the last applicable stage, offer a concrete follow-up or further revision;
+  respect “stop”, “not now”, or a request for no further questions.
+- If the user explicitly asks to complete several stages or the whole workflow without pauses,
+  honor that scope and ask at its end instead. Do not repeatedly reconfirm stages they have already
+  approved. Ordinary “build a scene” requests use the guided stage boundaries above.
+- At the rendered-output handoff, follow Stage 10: prepare and show the generation prompt. Ask whether
+  to generate only if the user has not already authorized generation from this version. An explicit
+  request such as “render and generate the video” already authorizes it. After authorization, use
+  progress updates rather than repeated approval questions about the prompt, account or submission.
+
 | Stage | What to do | Reference |
 | --- | --- | --- |
 | 1. Understand | Resolve intent from the conversation and current state; record it in the BOM | `references/state-intent.md` |
@@ -109,18 +157,19 @@ Read the reference for a stage once per session, before its first command:
 | 7. Edit | Change only what was asked; batch syntax; keyframes | `references/edit.md` |
 | 8. Check | Numbers, renders, look at the PNGs, revise | `references/checks.md` |
 | 9. Studio | Open the finished scene in the local Studio with the In-App Browser | `references/doctor-browser.md` |
-| 10. Generate | Once the video is rendered, write the generation prompt automatically, show it, then ask whether to generate; confirm every call; record the result | `references/generate.md`, `references/video-prompt.md` |
+| 10. Generate | Write and show the prompt; obtain generation authorization once if missing, then generate and record the result without repeated confirmation | `references/generate.md`, `references/video-prompt.md` |
 
 ## After the frames are ready
 
 Stage 10 is part of every workflow that ends in a rendered video or frames: do not close the session on
 the renders without it. Read `references/generate.md` and follow it. As soon as the video is rendered, you
 write the generation prompt yourself, without being asked, by following `references/video-prompt.md`,
-show it to the user, and only then ask whether to generate. On a yes it helps them pick a service and
-records the result. A video generation uses the rendered or exported video as its reference.
+show it to the user, and ask whether to generate if authorization for this version is missing. Once authorized,
+complete service selection, generation and result recording without repeated approval prompts.
+A video generation uses the rendered or exported video as its reference.
 
 Building, checking and rendering stay offline. Stage 10 is the only stage that may reach an outside
-service, and only for a call the user has confirmed in that exact form. Never contact a generation
+service, within the user's authorized generation task. Never contact a generation
 service from any other stage.
 
 Asset search rules for props, characters and poses are in `references/asset-selection.md`.

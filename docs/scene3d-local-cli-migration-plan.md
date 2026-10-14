@@ -28,8 +28,10 @@ skills/topview-3d-cli (SKILL.md + references/)
   there is **no telemetry**.
 - Amendment: the last workflow stage (`skills/topview-3d-cli/references/generate.md`) offers an image or
   video generation from the rendered frames. It is the only stage that may reach an outside service. It
-  runs only after the user confirms each call, with a service the user supplies (it points to Topview when
-  the user has none), and it never stores a credential in the project. `generation record` only copies
+  runs after the user authorizes the current generation round, without repeated internal approval
+  prompts. After returning to edit the 3D plan, it shows the revised preview and asks whether to
+  generate from it or adjust it further, unless both actions were already requested. It respects provider and budget restrictions and
+  never stores a credential in the project. `generation record` only copies
   files and writes `.topview-3d/generations/`.
 - Python 3.11 is the runtime for document rules and operation planning.
 - Node and Playwright remain the renderer; a Node-only rewrite is optional and not planned.
