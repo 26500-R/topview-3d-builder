@@ -18,9 +18,9 @@
 - Studio acceptance initially found missing Draco public assets: `studio open` directly launches Next and skips its `predev` hook. Both installers now run the existing copy-draco script after building. The copied decoder returns HTTP 200, and the native in-app browser displays the mannequin, box and camera preview with no load error. macOS shell syntax checked; PowerShell change reviewed but not executed on Windows.
 - Static compilation of `scripts/verify-mcp-3d-review.py` passes. Authenticated test endpoint verification passed all eight protocol/client-header combinations (Legacy 2025-03-26 and Modern 2026-07-28; portal/codex/claude/cursor). These are HTTP contract tests, not eight native-host UI runs. Each checks the exact six tools, explicit booleans, seven forbidden direct calls, and invalid upload arguments. Both protocol runs completed create Canvas → prepare upload → PUT PNG → create media node → state/list/link verification. Evidence: `dist/review-live-test.json`.
 
-## Remaining submission step
+## Submission outcome
 
-- Accept the final legal declarations with action-time user confirmation, then submit and verify the resulting review status.
+- Completed: the user confirmed all six final legal declarations, Submit succeeded, and Portal visibly reports In review. Publication remains Not published pending OpenAI review.
 
 No review-account passwords or bearer tokens are stored in this document, the source tree or upload archive.
 
@@ -43,3 +43,11 @@ Portal repair package 0.1.7 uploaded as a new draft; production verification and
 - Portal metadata and skill checks show no findings; MCP scan shows no findings. Six scanned annotations match the source table, including media-node openWorldHint=true. Not live means the draft has not been published, not an endpoint failure.
 - The supplied demo URL responds HTTP 200 with video/mp4. Review details were saved. Final legal declarations and Submit await action-time user confirmation.
 - Source archive packaging check passes: version 0.1.7. Comparison with the uploaded Portal archive shows the same manifest/assets/skills content; only .mcp.json differs for the documented Portal auth schema. CLI stays pinned at 0.1.6.
+
+## Resubmission completed
+
+- Final status verified on 2026-10-14: **In review**, MCP Configured, Authorized, Domain verified; Publication **Not published**.
+- User explicitly confirmed all six legal declarations at action time before Submit. Screenshot: `dist/review-resubmitted-in-review.png`.
+- Portal: https://platform.openai.com/plugins/manage/plugin_asdk_app_6accab1016088191b19230b3c7ecaec4
+- GitHub main includes source fixes, plugin version 0.1.7 and acceptance records at bb9ed8f (before this status-only documentation update). Gateway production main and pipeline source are 7a247f2.
+- Automated checks and successful submission do not constitute marketplace approval; OpenAI review is still pending.
