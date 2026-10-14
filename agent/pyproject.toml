@@ -7,7 +7,7 @@ name = "topview-3d-cli"
 dynamic = ["version"]
 description = "Build and render 3D director scenes locally with the topview-3d-cli command."
 readme = "README.md"
-license = "Apache-2.0 AND CC-BY-4.0"
+license = "Apache-2.0 AND CC-BY-4.0 AND OFL-1.1"
 license-files = ["LICENSE", "LICENSE-ASSETS", "NOTICE"]
 requires-python = ">=3.11"
 dependencies = ["jsonschema>=4.23.0"]

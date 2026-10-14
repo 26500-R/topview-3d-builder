@@ -16,3 +16,11 @@ with their LICENSE and NOTICE.
 
 Third-party packages staged into the wheel's renderer runtime (three, zod,
 @topview/3d-builder) keep their own licences, copied next to them.
+
+The editor UI bundles two fonts under the SIL Open Font License 1.1:
+
+  Instrument Sans © The Instrument Sans Project Authors
+  Darker Grotesque © The Darker Grotesque Project Authors
+
+Their licence texts are in editor/packages/builder/src/styles/fonts/ and, in
+the wheel, under topview_3d_cli/_runtime/director-cli/node_modules/@topview/3d-builder/dist/fonts/.
