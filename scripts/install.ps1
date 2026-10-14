@@ -163,6 +163,8 @@ if (-not $SkipNode) {
 
   Write-Step 'Building @topview/3d-builder'
   Invoke-Native $pnpm[0] ($pnpmArgs + @('-C', $Editor, '--filter', '@topview/3d-builder', 'build'))
+  # studio open launches Next directly, so its predev hook does not run.
+  Invoke-Native 'node' @((Join-Path $Editor 'apps/studio/scripts/copy-draco.cjs'))
 
   if (-not $SkipBrowser) {
     Write-Step 'Playwright Chromium'

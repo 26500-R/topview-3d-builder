@@ -127,6 +127,8 @@ if [ "$SKIP_NODE" = 0 ]; then
 
   step "Building @topview/3d-builder"
   "${PNPM[@]}" -C "$EDITOR" --filter @topview/3d-builder build
+  # studio open launches Next directly, so its predev hook does not run.
+  node "$EDITOR/apps/studio/scripts/copy-draco.cjs"
 
   if [ "$SKIP_BROWSER" = 0 ]; then
     step "Playwright Chromium"
