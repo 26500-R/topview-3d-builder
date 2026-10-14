@@ -120,15 +120,15 @@ Left is the 3D scene you build. Right is the video generated from it: **the way 
     <th width="50%" align="center">Generated video</th>
   </tr>
   <tr>
-    <td align="center"><a href="docs/assets/examples/sports-car-scene.mp4"><img src="docs/assets/examples/sports-car-scene.jpg" alt="Play Sports car: 3D scene" width="100%" /></a><br /><a href="docs/assets/examples/sports-car-scene.mp4">&#9654; Play video</a></td>
-    <td align="center"><a href="docs/assets/examples/sports-car-video.mp4"><img src="docs/assets/examples/sports-car-video.jpg" alt="Play Sports car: generated video" width="100%" /></a><br /><a href="docs/assets/examples/sports-car-video.mp4">&#9654; Play video</a></td>
+    <td align="center"><video src="https://github.com/user-attachments/assets/a6e689bb-d059-4eec-a06c-94db098796b9" width="100%" controls muted playsinline></video></td>
+    <td align="center"><video src="https://github.com/user-attachments/assets/8e25b621-e1cd-47cf-ada1-a960163b0e86" width="100%" controls muted playsinline></video></td>
   </tr>
   <tr>
     <td colspan="2"><b>prompt：</b> A person stands beside a sports car in a showroom. In one continuous ten-second shot, the camera moves from a low angle by the front wheel to a frontal view of the person, then rises and moves around to reveal the car from above.</td>
   </tr>
   <tr>
-    <td align="center"><a href="docs/assets/examples/parkour-scene.mp4"><img src="docs/assets/examples/parkour-scene.jpg" alt="Play Rooftop parkour: 3D scene" width="100%" /></a><br /><a href="docs/assets/examples/parkour-scene.mp4">&#9654; Play video</a></td>
-    <td align="center"><a href="docs/assets/examples/parkour-video.mp4"><img src="docs/assets/examples/parkour-video.jpg" alt="Play Rooftop parkour: generated video" width="100%" /></a><br /><a href="docs/assets/examples/parkour-video.mp4">&#9654; Play video</a></td>
+    <td align="center"><video src="https://github.com/user-attachments/assets/fd32e367-c9a6-4111-bd8f-bae8b0a7d568" width="100%" controls muted playsinline></video></td>
+    <td align="center"><video src="https://github.com/user-attachments/assets/71559885-aea2-40f3-b824-de0cd7ec06cf" width="100%" controls muted playsinline></video></td>
   </tr>
   <tr>
     <td colspan="2"><b>prompt：</b> A runner crosses a rooftop, leaps across a gap with a forward flip, lands on the next roof and keeps running. The camera follows from behind, keeping the jump and landing in frame.</td>
@@ -149,6 +149,20 @@ Left is the 3D scene you build. Right is the video generated from it: **the way 
   <tr>
     <th width="50%" align="center">3D scene</th>
     <th width="50%" align="center">Generated video</th>
+  </tr>
+  <tr>
+    <td align="center"><video src="https://github.com/user-attachments/assets/b2faccb8-c46a-4646-af60-cda55273c67b" width="100%" controls muted playsinline></video></td>
+    <td align="center"><video src="https://github.com/user-attachments/assets/b18b1213-62fe-4ef1-8fc2-52c1527e3a1f" width="100%" controls muted playsinline></video></td>
+  </tr>
+  <tr>
+    <td colspan="2"><b>prompt：</b> A person stands beside a sports car in a showroom. In one continuous ten-second shot, the camera moves from a low angle by the front wheel to a frontal view of the person, then rises and moves around to reveal the car from above.</td>
+  </tr>
+  <tr>
+    <td align="center"><video src="https://github.com/user-attachments/assets/f3960d96-bd40-4db3-8d70-f6757a40e3ea" width="100%" controls muted playsinline></video></td>
+    <td align="center"><video src="https://github.com/user-attachments/assets/db41c7f6-982a-40df-8c9a-2172221011fa" width="100%" controls muted playsinline></video></td>
+  </tr>
+  <tr>
+    <td colspan="2"><b>prompt：</b> A runner crosses a rooftop, leaps across a gap with a forward flip, lands on the next roof and keeps running. The camera follows from behind, keeping the jump and landing in frame.</td>
   </tr>
   <tr>
     <td align="center"><video src="https://github.com/user-attachments/assets/a8d96386-3908-43c7-bf44-42256995714b" width="100%" controls muted playsinline></video></td>
@@ -172,11 +186,18 @@ Left is the 3D scene you build. Right is the video generated from it: **the way 
     <td colspan="2"><b>prompt：</b> A person rides a bicycle along a city street. The camera starts level and tracks alongside, then rises and pulls back to a high angle looking down the street over eight seconds.</td>
   </tr>
   <tr>
-    <td align="center"><a href="docs/assets/examples/horse-city-scene.mp4"><img src="docs/assets/examples/horse-city-scene.jpg" alt="Play Horse in city traffic: 3D scene" width="100%" /></a><br /><a href="docs/assets/examples/horse-city-scene.mp4">&#9654; Play video</a></td>
-    <td align="center"><a href="docs/assets/examples/horse-city-video.mp4"><img src="docs/assets/examples/horse-city-video.jpg" alt="Play Horse in city traffic: generated video" width="100%" /></a><br /><a href="docs/assets/examples/horse-city-video.mp4">&#9654; Play video</a></td>
+    <td align="center"><video src="https://github.com/user-attachments/assets/54c22498-7679-4df7-8df4-b805f16ea8ad" width="100%" controls muted playsinline></video></td>
+    <td align="center"><video src="https://github.com/user-attachments/assets/ffd813eb-1b4b-4268-b43e-fd06d489b974" width="100%" controls muted playsinline></video></td>
   </tr>
   <tr>
     <td colspan="2"><b>prompt：</b> A rider on horseback moves among cars along a city street toward a red light. The camera follows from an elevated rear angle, then cuts to the rider's first-person view with the horse's ears in the foreground as traffic slows near the crossing.</td>
+  </tr>
+  <tr>
+    <td align="center"><video src="https://github.com/user-attachments/assets/8ad22506-637f-483f-a37c-ff6ebcc494fc" width="100%" controls muted playsinline></video></td>
+    <td align="center"><video src="https://github.com/user-attachments/assets/23ba9945-f92f-470e-895b-2d5638ada379" width="100%" controls muted playsinline></video></td>
+  </tr>
+  <tr>
+    <td colspan="2"><b>prompt：</b> A rider on horseback rides through city traffic toward a red light. Over ten seconds the camera starts high behind the rider among the cars, then cuts to the horse's point of view, ears in the foreground, as it reaches the crosswalk.</td>
   </tr>
 </table>
 
