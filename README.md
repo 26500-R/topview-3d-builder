@@ -256,4 +256,8 @@ If Topview 3D Builder helps your work, **give the repo a ⭐** and share what yo
 
 ## Acknowledgements
 
-- [QwenLM](https://github.com/QwenLM)
+Thanks to the Qwen team for their strong support of this project.
+
+- GitHub: [QwenLM](https://github.com/QwenLM)
+- Hugging Face: [Qwen](https://huggingface.co/Qwen)
+- ModelScope: [Qwen](https://modelscope.cn/organization/Qwen)
