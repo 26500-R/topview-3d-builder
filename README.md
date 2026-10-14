@@ -151,20 +151,6 @@ Left is the 3D scene you build. Right is the video generated from it: **the way 
     <th width="50%" align="center">Generated video</th>
   </tr>
   <tr>
-    <td align="center"><video src="https://github.com/user-attachments/assets/b2faccb8-c46a-4646-af60-cda55273c67b" width="100%" controls muted playsinline></video></td>
-    <td align="center"><video src="https://github.com/user-attachments/assets/b18b1213-62fe-4ef1-8fc2-52c1527e3a1f" width="100%" controls muted playsinline></video></td>
-  </tr>
-  <tr>
-    <td colspan="2"><b>prompt：</b> A person stands beside a sports car in a showroom. In one continuous ten-second shot, the camera moves from a low angle by the front wheel to a frontal view of the person, then rises and moves around to reveal the car from above.</td>
-  </tr>
-  <tr>
-    <td align="center"><video src="https://github.com/user-attachments/assets/f3960d96-bd40-4db3-8d70-f6757a40e3ea" width="100%" controls muted playsinline></video></td>
-    <td align="center"><video src="https://github.com/user-attachments/assets/db41c7f6-982a-40df-8c9a-2172221011fa" width="100%" controls muted playsinline></video></td>
-  </tr>
-  <tr>
-    <td colspan="2"><b>prompt：</b> A runner crosses a rooftop, leaps across a gap with a forward flip, lands on the next roof and keeps running. The camera follows from behind, keeping the jump and landing in frame.</td>
-  </tr>
-  <tr>
     <td align="center"><video src="https://github.com/user-attachments/assets/a8d96386-3908-43c7-bf44-42256995714b" width="100%" controls muted playsinline></video></td>
     <td align="center"><video src="https://github.com/user-attachments/assets/53dc49f2-5e3a-4519-9af7-cd152ad3aaf4" width="100%" controls muted playsinline></video></td>
   </tr>
@@ -184,13 +170,6 @@ Left is the 3D scene you build. Right is the video generated from it: **the way 
   </tr>
   <tr>
     <td colspan="2"><b>prompt：</b> A person rides a bicycle along a city street. The camera starts level and tracks alongside, then rises and pulls back to a high angle looking down the street over eight seconds.</td>
-  </tr>
-  <tr>
-    <td align="center"><video src="https://github.com/user-attachments/assets/54c22498-7679-4df7-8df4-b805f16ea8ad" width="100%" controls muted playsinline></video></td>
-    <td align="center"><video src="https://github.com/user-attachments/assets/ffd813eb-1b4b-4268-b43e-fd06d489b974" width="100%" controls muted playsinline></video></td>
-  </tr>
-  <tr>
-    <td colspan="2"><b>prompt：</b> A rider on horseback moves among cars along a city street toward a red light. The camera follows from an elevated rear angle, then cuts to the rider's first-person view with the horse's ears in the foreground as traffic slows near the crossing.</td>
   </tr>
   <tr>
     <td align="center"><video src="https://github.com/user-attachments/assets/8ad22506-637f-483f-a37c-ff6ebcc494fc" width="100%" controls muted playsinline></video></td>
