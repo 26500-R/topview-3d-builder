@@ -36,7 +36,7 @@ def test_main_skill_stays_free_of_online_wording_and_runs_the_generate_stage():
     text = (skill / "SKILL.md").read_text(encoding="utf-8")
     assert "references/generate.md" in text and "http" not in text
     reference = (skill / "references" / "generate.md").read_text(encoding="utf-8")
-    assert "https://www.topview.ai/3d-builder" in reference
+    assert "https://mcp-browser.topview.ai" in reference and "topview-browser" in reference
     assert "generation record" in reference and "Wait for a clear yes" in reference
     assert "omni" in reference and "<<<Video1>>>" in reference and "video-prompt.md" in reference
     prompt = (skill / "references" / "video-prompt.md").read_text(encoding="utf-8")
