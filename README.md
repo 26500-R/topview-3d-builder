@@ -120,6 +120,37 @@ Left is the 3D scene you build. Right is the video generated from it: **the way 
     <th width="50%" align="center">Generated video</th>
   </tr>
   <tr>
+    <td align="center"><a href="docs/assets/examples/sports-car-scene.mp4"><img src="docs/assets/examples/sports-car-scene.jpg" alt="Play Sports car: 3D scene" width="100%" /></a><br /><a href="docs/assets/examples/sports-car-scene.mp4">&#9654; Play video</a></td>
+    <td align="center"><a href="docs/assets/examples/sports-car-video.mp4"><img src="docs/assets/examples/sports-car-video.jpg" alt="Play Sports car: generated video" width="100%" /></a><br /><a href="docs/assets/examples/sports-car-video.mp4">&#9654; Play video</a></td>
+  </tr>
+  <tr>
+    <td colspan="2"><b>prompt：</b> A person stands beside a sports car in a showroom. In one continuous ten-second shot, the camera moves from a low angle by the front wheel to a frontal view of the person, then rises and moves around to reveal the car from above.</td>
+  </tr>
+  <tr>
+    <td align="center"><a href="docs/assets/examples/parkour-scene.mp4"><img src="docs/assets/examples/parkour-scene.jpg" alt="Play Rooftop parkour: 3D scene" width="100%" /></a><br /><a href="docs/assets/examples/parkour-scene.mp4">&#9654; Play video</a></td>
+    <td align="center"><a href="docs/assets/examples/parkour-video.mp4"><img src="docs/assets/examples/parkour-video.jpg" alt="Play Rooftop parkour: generated video" width="100%" /></a><br /><a href="docs/assets/examples/parkour-video.mp4">&#9654; Play video</a></td>
+  </tr>
+  <tr>
+    <td colspan="2"><b>prompt：</b> A runner crosses a rooftop, leaps across a gap with a forward flip, lands on the next roof and keeps running. The camera follows from behind, keeping the jump and landing in frame.</td>
+  </tr>
+  <tr>
+    <td align="center"><video src="https://github.com/user-attachments/assets/bc00daca-e8e6-469b-a3a2-cf34b6395826" width="100%" controls muted playsinline></video></td>
+    <td align="center"><video src="https://github.com/user-attachments/assets/955dae4e-dc87-4448-9f4d-219789dc441f" width="100%" controls muted playsinline></video></td>
+  </tr>
+  <tr>
+    <td colspan="2"><b>prompt：</b> A player jumps and shoots at a hoop. The camera starts low beside them, then rises and pushes in toward the basket, finishing above the rim and looking down over eight seconds.</td>
+  </tr>
+</table>
+
+<details>
+<summary>More examples</summary>
+
+<table>
+  <tr>
+    <th width="50%" align="center">3D scene</th>
+    <th width="50%" align="center">Generated video</th>
+  </tr>
+  <tr>
     <td align="center"><video src="https://github.com/user-attachments/assets/a8d96386-3908-43c7-bf44-42256995714b" width="100%" controls muted playsinline></video></td>
     <td align="center"><video src="https://github.com/user-attachments/assets/53dc49f2-5e3a-4519-9af7-cd152ad3aaf4" width="100%" controls muted playsinline></video></td>
   </tr>
@@ -134,28 +165,18 @@ Left is the 3D scene you build. Right is the video generated from it: **the way 
     <td colspan="2"><b>prompt：</b> One person pours from a pitcher into a cup on a café counter. The camera starts wide across the counter, then pushes in and rises to a top-down close-up of the pour over eight seconds.</td>
   </tr>
   <tr>
-    <td align="center"><video src="https://github.com/user-attachments/assets/bc00daca-e8e6-469b-a3a2-cf34b6395826" width="100%" controls muted playsinline></video></td>
-    <td align="center"><video src="https://github.com/user-attachments/assets/955dae4e-dc87-4448-9f4d-219789dc441f" width="100%" controls muted playsinline></video></td>
-  </tr>
-  <tr>
-    <td colspan="2"><b>prompt：</b> A player jumps and shoots at a hoop. The camera starts low beside them, then rises and pushes in toward the basket, finishing above the rim and looking down over eight seconds.</td>
-  </tr>
-</table>
-
-<details>
-<summary>More: street tracking shot</summary>
-
-<table>
-  <tr>
-    <th width="50%" align="center">3D scene</th>
-    <th width="50%" align="center">Generated video</th>
-  </tr>
-  <tr>
     <td align="center"><video src="https://github.com/user-attachments/assets/32e485e7-7a25-4036-bce3-afb634669c1c" width="100%" controls muted playsinline></video></td>
     <td align="center"><video src="https://github.com/user-attachments/assets/d6076569-dc82-44e1-97ac-df7a57cdcfd8" width="100%" controls muted playsinline></video></td>
   </tr>
   <tr>
     <td colspan="2"><b>prompt：</b> A person rides a bicycle along a city street. The camera starts level and tracks alongside, then rises and pulls back to a high angle looking down the street over eight seconds.</td>
+  </tr>
+  <tr>
+    <td align="center"><a href="docs/assets/examples/horse-city-scene.mp4"><img src="docs/assets/examples/horse-city-scene.jpg" alt="Play Horse in city traffic: 3D scene" width="100%" /></a><br /><a href="docs/assets/examples/horse-city-scene.mp4">&#9654; Play video</a></td>
+    <td align="center"><a href="docs/assets/examples/horse-city-video.mp4"><img src="docs/assets/examples/horse-city-video.jpg" alt="Play Horse in city traffic: generated video" width="100%" /></a><br /><a href="docs/assets/examples/horse-city-video.mp4">&#9654; Play video</a></td>
+  </tr>
+  <tr>
+    <td colspan="2"><b>prompt：</b> A rider on horseback moves among cars along a city street toward a red light. The camera follows from an elevated rear angle, then cuts to the rider's first-person view with the horse's ears in the foreground as traffic slows near the crossing.</td>
   </tr>
 </table>
 
