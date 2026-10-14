@@ -30,6 +30,8 @@ https://github.com/user-attachments/assets/0abab696-3d30-4b5e-9187-6918f5d433e9
 
 ## Quick Start
 
+**Recommended model: Qwen 3.8 Flash.** It costs about 1/140 of GPT 6 Astra and reaches a similar result. We recommend using it.
+
 Works with **ChatGPT / Codex**, **Cursor** and **Claude Code**. You need Python 3.11+, Node.js 20.6+, and either [uv](https://docs.astral.sh/uv/) or pipx.
 
 **1. Send this to your agent**
@@ -251,3 +253,7 @@ If Topview 3D Builder helps your work, **give the repo a ⭐** and share what yo
 
 - Code, schemas and docs: [Apache License 2.0](https://github.com/topviewai/topview-3d-builder/blob/main/LICENSE)
 - Built-in assets (characters, poses and more): [CC BY 4.0](https://github.com/topviewai/topview-3d-builder/blob/main/builtin-assets/LICENSE). Credit them as "Scene3D built-in assets © Topview, CC BY 4.0".
+
+## Acknowledgements
+
+- [Alibaba NLP](https://github.com/Alibaba-NLP)
