@@ -168,7 +168,8 @@ Before each call to a service, show the user, in plain words and in their langua
 Also say that the reference (the video or the frames) is uploaded to the service. `topview-skill` uploads
 local files by itself when you pass their paths, so disclose this before submitting.
 
-These details are an execution notice, not a new approval gate. A clear yes to video generation or
+If generation is not yet authorized, ask whether to proceed. Wait for a clear yes before submitting.
+When generation is already authorized, these details are an execution notice, not a new approval gate. A clear yes to video generation or
 an explicit generation request authorizes the current generation round. Carry that authorization
 across its execution steps and direct requests to revise the generated result using changed prompts
 or appearance references. Do not ask again merely to submit that requested revision. Returning to

@@ -144,7 +144,7 @@ already answers that choice; see `references/generate.md`.
 - At the rendered-output handoff, follow Stage 10: prepare and show the generation prompt. Ask whether
   to generate only if the user has not already authorized generation from this version. An explicit
   request such as “render and generate the video” already authorizes it. After authorization, use
-  progress updates rather than repeated approval questions about the prompt, account or submission.
+  progress updates rather than repeated approval questions about preparation or execution.
 
 | Stage | What to do | Reference |
 | --- | --- | --- |
