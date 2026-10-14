@@ -1,361 +1,236 @@
-# Topview 3D Builder
+<p align="center">
+  <img src="logo.png" alt="Topview 3D Builder" width="120" />
+</p>
 
-Topview 3D Builder creates editable 3D scenes on your own machine, and those scenes
-guide AI video generation. You place characters, poses, props and cameras, adjust
-the blocking, and render reference frames. The 3D scene is the staging plan the
-video model follows. It is not the finished video.
+<h1 align="center">Topview 3D Builder</h1>
 
-The scene stays in a local project directory (`.topview-3d/`) and can be edited
-again after it is built. `topview-3d-cli` (Python) owns that project. A Node
-renderer, built on the 3D Builder, writes the PNG frames. Open the same project
-in the local Studio to look at it and keep editing.
+<p align="center"><b>Stop prompting. Start directing.</b></p>
 
-The plugin is **Topview 3D Builder** (`topview-3d-builder`). It is a skill that
-runs this CLI, and it works in ChatGPT (the Codex app), the Codex CLI, Cursor and
-Claude Code. Building and rendering need no account and upload nothing. The last
-workflow stage offers an image or video generation from the rendered frames; it
-runs only after you confirm each call, with a service you choose (the skill points
-you to Topview when you have none). Sending a finished render from the local Studio
-to a Topview Canvas is the one step that asks you to sign in to Topview. Install
-the CLI from PyPI as `topview-3d-cli`.
+<p align="center">
+  From an idea, to a 3D scene built by your agent, to a real animated video. Free, runs locally, no sign-up.
+</p>
 
-## Repository layout
+<p align="center">
+  <a href="https://github.com/topviewai/topview-3d-builder/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License: Apache 2.0"></a>
+  <a href="https://www.python.org"><img src="https://img.shields.io/badge/python-%3E%3D3.11-3776AB" alt="Python 3.11+"></a>
+  <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%3E%3D20.6-brightgreen" alt="Node.js 20.6+"></a>
+  <img src="https://img.shields.io/badge/runs-100%25%20local-success" alt="Runs 100% local">
+</p>
 
-- `editor/` — `topview-3d-builder`, copied from the latest `main`.
-- `agent/` — the Scene3D Python package (`topview_3d_cli`, with the director
-  document contract under `topview_3d_cli/contracts`). `agent/pyproject.toml`
-  defines the `topview-3d-cli` distribution and the `topview-3d-cli` console script.
-- `skills/topview-3d-cli/` — the agent skill: `SKILL.md` (setup, CLI contract, workflow) and one
-  `references/*.md` per workflow stage. Every command it quotes runs against the CLI.
-- `builtin-assets/` — the built-in characters, poses, and primitives
-  (Topview-made, CC-BY-4.0; see `builtin-assets/LICENSE` and `builtin-assets/NOTICE`).
-- `scripts/` — `build_dist.py` (wheel and sdist), `install.sh` (macOS/Linux) and
-  `install.ps1` (Windows) for developer installs, `lint_skills.py` (skill and manifest checks),
-  `set_version.py`, `package-codex-plugin.mjs` and `wheel_smoke.py`.
-- `.codex-plugin/`, `.claude-plugin/`, `.cursor-plugin/`, `.agents/plugins/` — plugin manifests;
-  `assets/` — the plugin logo and icon. `.github/workflows/` — CI and the PyPI / TestPyPI release.
-- `docs/` — [the CLI contract](docs/topview-3d-cli.md) and the migration plan.
+<p align="center">
+  <a href="#quick-start">Quick Start</a> |
+  <a href="#see-what-you-can-make">Examples</a> |
+  <a href="https://www.topview.ai/academy/spatial-control#3-1-3d-builder-build-scenes-stage-action-and-move-the-camera">Tutorial</a> |
+  <a href="https://www.topview.ai/3d-builder">3D Builder</a> |
+  <a href="https://www.topview.ai">Topview.ai</a> |
+  <a href="https://github.com/topviewai/topview-3d-builder/issues">Issues</a>
+</p>
 
-The current transition keeps Python 3.11 for document and operation logic. Node
-and Playwright remain the rendering runtime. Docker is not part of the local
-execution path.
+<p align="center">
+  <video src="docs/assets/hero.mp4" width="100%" controls muted playsinline></video>
+</p>
 
-## Install the plugin
+<p align="center"><sub>Build the scene, place the cameras, plan the camera move in Studio, then get the shot.</sub></p>
 
-The plugin is the `skills/topview-3d-cli` skill plus a manifest per agent. The skill's first step
-runs the CLI through `uvx --python 3.12 topview-3d-cli@0.1.6` (or a local wheel, see
-[Install the CLI](#install-the-cli)), so every agent also needs Python 3.11+, Node.js 20.6+ and uv
-or pipx on the machine. The wheel also carries a prebuilt local Studio (open and edit a scene, send
-renders to a Topview Canvas), so `studio open` works from the package with Node alone; a checkout
-set up with `scripts/install.sh` runs Studio from source instead.
+## Quick Start
 
-The repository [topviewai/topview-3d-builder](https://github.com/topviewai/topview-3d-builder) is
-private for now. The commands below clone it over SSH
-(`git@github.com:topviewai/topview-3d-builder.git`), so your GitHub account needs read access and an
-SSH key. The short `topviewai/topview-3d-builder` form clones over HTTPS and fails on a private repo.
+Works with **ChatGPT / Codex**, **Cursor** and **Claude Code**. You need Python 3.11+, Node.js 20.6+, and either [uv](https://docs.astral.sh/uv/) or pipx.
 
-| Agent | Manifest the agent reads |
+**1. Send this to your agent**
+
+```text
+Install the Topview 3D Builder plugin from https://github.com/topviewai/topview-3d-builder for the agent I'm using (ChatGPT / Codex, Cursor or Claude Code). Follow the install steps in the README, then tell me when to restart.
+```
+
+<details>
+<summary>What your agent will run</summary>
+
+**ChatGPT / Codex** (the ChatGPT desktop app shares Codex's configuration; restart the app afterwards)
+
+```bash
+codex plugin marketplace add https://github.com/topviewai/topview-3d-builder.git --ref main
+codex plugin add topview-3d-builder@topview-3d-builder
+```
+
+**Cursor** (restart Cursor afterwards)
+
+```bash
+git clone https://github.com/topviewai/topview-3d-builder.git ~/.cursor/plugins/local/topview-3d-builder
+```
+
+**Claude Code** (restart Claude Code afterwards)
+
+```bash
+claude plugin marketplace add https://github.com/topviewai/topview-3d-builder.git
+claude plugin install topview-3d-builder@topview-3d-builder
+```
+
+**Any other agent with skills support**
+
+```bash
+npx skills add https://github.com/topviewai/topview-3d-builder.git
+```
+
+Then pick `topview-3d-cli`. The first render downloads a browser component once; after that it is cached. For the CLI and project format, see the [CLI reference](https://github.com/topviewai/topview-3d-builder/blob/main/docs/topview-3d-cli.md).
+
+</details>
+
+**2. Start a new session and describe the scene you want**
+
+> Build a scene: a character sits next to a box. Render a front view.
+
+**3. Review the scene and keep refining**
+
+Keep talking to your agent, or open Studio and adjust by hand. When you're happy, turn the 3D scene into a real animated video.
+
+## What is Topview 3D Builder?
+
+Topview 3D Builder is a **3D director's stage for AI video**. You describe the scene, and your agent builds it in 3D: who stands where, who faces what, what they hold, and where the camera sits. That 3D scene then guides the video model, so the staging comes from you instead of from luck.
+
+It covers the whole path from **an idea, to a 3D scene, to a real animated video**. The 3D scene fixes blocking, scale and camera angles. Texture, lighting and performance come from the video model.
+
+```
+An idea  →  Agent builds the 3D scene  →  Auto-check and refine  →  Multi-camera render  →  Real animated video
+```
+
+Everything before the video runs on your machine, free, with no account and no upload.
+
+## What problem does it solve?
+
+If you make AI videos, you've probably hit this: text prompts can't describe space precisely, so you can't control where people stand or where the camera goes. Directing AI video ends up feeling like gambling. 3D Builder gives you control back.
+
+| The problem | How 3D Builder solves it |
 | --- | --- |
-| ChatGPT (Codex app) and Codex CLI | `.codex-plugin/plugin.json`, `.agents/plugins/marketplace.json`, `.mcp.json` |
-| Cursor | `.cursor-plugin/plugin.json` |
-| Claude Code | `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` |
+| 😵 **Blocking is a guess.** "Two people facing each other across a table" comes back side by side, clipping, or without the table. | 🎬 **Direct, don't gamble.** You place characters, poses, props and cameras, so blocking and facing are decided, not guessed. |
+| 🎰 **Camera angles are a lottery.** You write a paragraph and get one random angle. | 🎥 **Design the camera move in advance.** Plan push-ins, pull-backs, rises, orbits and cuts on a timeline. |
+| 🔁 **One tweak, full redo.** Move a character half a step and everything changes on regenerate. | ✏️ **Edit one thing, keep the rest.** The scene is a saved project. Move a character, change a pose or add a camera without starting over. |
+| 💸 **Retries burn credits.** A usable shot can take a dozen attempts. | ✅ **Checked before you generate.** Floating or clipping characters, spacing and framing are measured automatically, so problems are caught early. |
+| 🧩 **Shots don't match.** Character positions and space contradict each other from shot to shot. | 🎬 **One scene, many cameras.** Render several cameras from the same scene and characters and space stay consistent in every shot. |
+| 📐 **Not everyone can storyboard.** No art skills means no way to show the staging in your head. | 💬 **Just describe it.** No 3D software to learn. Ask in plain language and your agent builds the scene. |
+
+## How it works
+
+1. **Describe the shot.** Tell your agent the scene you want, for example: *"Two people sit across a table, a woman is talking. Give me a front, an over-the-shoulder and a top-down shot."*
+2. **The agent builds the 3D scene.** It uses built-in characters, poses and props, and places the cameras.
+3. **Check and refine.** The scene is measured automatically. Keep talking to your agent, or open Studio and drag things around.
+4. **Render and generate.** Render the cameras, plan the camera moves, then turn the 3D scene into a real animated video.
+### Example
+
+Left is the 3D scene you build. Right is the video generated from it: **the way you stage it in 3D is the way it gets shot.**
+
+<table>
+  <tr>
+    <th width="50%" align="center">3D scene</th>
+    <th width="50%" align="center">Generated video</th>
+  </tr>
+  <tr>
+    <td align="center"><video src="docs/assets/examples/dragon-scene.mp4" width="100%" controls muted playsinline></video></td>
+    <td align="center"><video src="docs/assets/examples/dragon-video.mp4" width="100%" controls muted playsinline></video></td>
+  </tr>
+  <tr>
+    <td colspan="2"><b>prompt：</b> A rider flies a dragon over a castle. The camera starts just behind and above them, looking forward over the wings at the towers. Over eight seconds it follows the flight as the dragon clears the castle and heads out over the hills.</td>
+  </tr>
+  <tr>
+    <td align="center"><video src="docs/assets/examples/coffee-scene.mp4" width="100%" controls muted playsinline></video></td>
+    <td align="center"><video src="docs/assets/examples/coffee-video.mp4" width="100%" controls muted playsinline></video></td>
+  </tr>
+  <tr>
+    <td colspan="2"><b>prompt：</b> One person pours from a pitcher into a cup on a café counter. The camera starts wide across the counter, then pushes in and rises to a top-down close-up of the pour over eight seconds.</td>
+  </tr>
+  <tr>
+    <td align="center"><video src="docs/assets/examples/basketball-scene.mp4" width="100%" controls muted playsinline></video></td>
+    <td align="center"><video src="docs/assets/examples/basketball-video.mp4" width="100%" controls muted playsinline></video></td>
+  </tr>
+  <tr>
+    <td colspan="2"><b>prompt：</b> A player jumps and shoots at a hoop. The camera starts low beside them, then rises and pushes in toward the basket, finishing above the rim and looking down over eight seconds.</td>
+  </tr>
+</table>
+
+<details>
+<summary>More: street tracking shot</summary>
+
+<table>
+  <tr>
+    <th width="50%" align="center">3D scene</th>
+    <th width="50%" align="center">Generated video</th>
+  </tr>
+  <tr>
+    <td align="center"><video src="docs/assets/examples/bicycle-scene.mp4" width="100%" controls muted playsinline></video></td>
+    <td align="center"><video src="docs/assets/examples/bicycle-video.mp4" width="100%" controls muted playsinline></video></td>
+  </tr>
+  <tr>
+    <td colspan="2"><b>prompt：</b> A person rides a bicycle along a city street. The camera starts level and tracks alongside, then rises and pulls back to a high angle looking down the street over eight seconds.</td>
+  </tr>
+</table>
+
+</details>
+
+### More prompts to try
+
+> Build a small café. Two people sit across a table from each other. Put the camera outside the window and slowly push in over four seconds. Render the first, middle and last frame.
+
+> A woman stands in a white studio holding a pose from the "walking" set. Three cameras: front, three-quarter, and a low angle. Render all three.
+
+> Put a car in the middle of an empty street. Orbit the camera 90 degrees around it over five seconds.
+
+> Take my current scene, add a second camera behind the main character, and cut to it halfway through.
+
+## Why Topview 3D Builder?
+
+- **Direct, don't gamble.** Composition, eyelines and camera paths are decided before the video model runs.
+- **Edit, don't regenerate.** The scene is a file, not a prompt. Move one prop and render again.
+- **Checked before you render.** Framing, grounding, spacing and collisions are measured automatically, so mistakes surface early.
+- **A full 3D editor, not just an agent.** Many code-driven 3D scene tools can only be changed through an agent. Topview 3D Builder ships a complete 3D software interface, Studio, and everything your agent can do has a matching panel you can use by hand.
+- **Agent-native.** Works in ChatGPT / Codex, Cursor and Claude Code. You talk, your agent builds.
+- **Local by default.** Building and rendering need no account and upload nothing.
+- **Open source.** Code under Apache 2.0, built-in assets under CC BY 4.0.
+## Built-in assets
+
+Ready to use out of the box.
+
+| Asset | Count | Notes |
+| --- | --- | --- |
+| 👤 Characters | 4 | Child, youth, woman, man |
+| 🧍 Poses | 121 | Sitting, standing, walking, fighting, crawling, reaching and more |
+| 📦 Props | Primitives | Boxes, cylinders and more, for quickly building tables, walls and objects |
+| 🎥 Cameras | As many as you need | Story cameras plus a bird's-eye overview to see the whole staging at a glance |
+
+Built-in assets are made by Topview and licensed under CC BY 4.0.
+
+## Who it's for
+
+- **AI short-drama and short-video creators.** Keep character positions consistent across shots and get more usable footage per generation.
+- **Ad, brand and e-commerce content teams.** Agree on staging and camera work before you spend generation credits, and keep people and products in a stable relationship across shots.
+
+Directors, storyboard artists and anyone previsualizing a scene can use it too.
 
-Only the Codex manifest declares an MCP server (`topview-3d`, in `.mcp.json`); Codex asks you to
-sign in to Topview the first time the plugin uses it. Cursor and Claude Code load the skill only.
-In every agent, the local Studio signs in to Topview on its own when you send a render to a Canvas.
+## FAQ
 
-After installing in any agent, start a new session and ask for a scene, for example "Build a scene
-with a character next to a box and render a front view".
+**Do I need any 3D modeling skills?**
+No. Describe what you want in plain language. Your agent builds, checks and renders the scene.
 
-### ChatGPT (Codex app)
+**Is it free? Do I need an account?**
+Building, editing and rendering are free and need no account.
 
-The ChatGPT desktop app runs plugins through Codex and shares its configuration (`~/.codex`) with the
-Codex CLI. Install once with the Codex CLI commands in the next section, then restart the app; the
-plugin shows up as **Topview 3D Builder**.
+**Is my content uploaded?**
+No. Every project stays in a `.topview-3d/` folder on your machine.
 
-For a workspace-wide install, an admin uploads the plugin archive in the plugin directory submission
-flow. Build it with `node scripts/package-codex-plugin.mjs --release` (see
-[Build the Codex upload archive](#build-the-codex-upload-archive)) and upload
-`dist/topview-3d-builder-plugin.zip`.
+**Can it generate video?**
+Yes. It covers the whole path from an idea, to a 3D scene, to a real animated video: you lock the staging first, then generate the video from that 3D scene.
 
-### Codex CLI
+## Learn more and join in
 
-```bash
-codex plugin marketplace add git@github.com:topviewai/topview-3d-builder.git --ref main
-codex plugin add topview-3d-builder@topview-3d-builder
-```
+| | |
+| --- | --- |
+| 🌐 **Topview.ai** | [www.topview.ai](https://www.topview.ai) |
+| 🎬 **3D Builder home** | [www.topview.ai/3d-builder](https://www.topview.ai/3d-builder) |
+| 🎓 **3D Builder tutorial** | [Build scenes, stage action and move the camera](https://www.topview.ai/academy/spatial-control#3-1-3d-builder-build-scenes-stage-action-and-move-the-camera) |
+| 🛠 **CLI reference** | [CLI and project format](https://github.com/topviewai/topview-3d-builder/blob/main/docs/topview-3d-cli.md) |
+| 🐞 **Feedback and bugs** | [GitHub Issues](https://github.com/topviewai/topview-3d-builder/issues) |
 
-Replace `--ref main` with a tag such as `--ref v0.1.5` to pin a release, or pass a local checkout
-path instead of the Git URL. Restart Codex afterwards.
-
-To update, remove the old version first, then add it again. Codex caches an installed plugin by its
-version number (`~/.codex/plugins/cache/topview-3d-builder/topview-3d-builder/<version>`), and
-changes on `main` can ship under the same number, so reinstalling on top may keep the old files:
-
-```bash
-codex plugin remove topview-3d-builder@topview-3d-builder
-codex plugin marketplace remove topview-3d-builder
-codex plugin marketplace add git@github.com:topviewai/topview-3d-builder.git --ref main
-codex plugin add topview-3d-builder@topview-3d-builder
-```
-
-This also moves a marketplace that was pinned to a tag. Restart Codex (and the ChatGPT app) afterwards.
-
-### Cursor
-
-Cursor loads local plugins from `~/.cursor/plugins/local/`. Clone the repository there and restart
-Cursor:
-
-```bash
-git clone git@github.com:topviewai/topview-3d-builder.git ~/.cursor/plugins/local/topview-3d-builder
-```
-
-A symlink to an existing checkout works as well. To update, pull and restart Cursor:
-
-```bash
-git -C ~/.cursor/plugins/local/topview-3d-builder fetch origin main
-git -C ~/.cursor/plugins/local/topview-3d-builder checkout -B main origin/main
-```
-
-For a release, use `fetch origin tag v0.1.5` and `checkout v0.1.5` instead. If the pull fails
-because of local edits in that folder, delete the old copy and clone again:
-
-```bash
-rm -rf ~/.cursor/plugins/local/topview-3d-builder
-git clone git@github.com:topviewai/topview-3d-builder.git ~/.cursor/plugins/local/topview-3d-builder
-```
-
-The clone also holds the Studio's `node_modules`; after cloning again, the skill runs
-`scripts/install.sh` the next time it needs the Studio. The CLI itself lives in the shared
-environment described under "Developer install from a checkout" and survives the re-clone.
-
-### Claude Code
-
-```bash
-claude plugin marketplace add git@github.com:topviewai/topview-3d-builder.git
-claude plugin install topview-3d-builder@topview-3d-builder
-```
-
-Inside a session, `/plugin` opens the same install flow. Restart Claude Code afterwards.
-
-To update, remove the old version and install again:
-
-```bash
-claude plugin uninstall topview-3d-builder@topview-3d-builder
-claude plugin marketplace remove topview-3d-builder
-claude plugin marketplace add git@github.com:topviewai/topview-3d-builder.git
-claude plugin install topview-3d-builder@topview-3d-builder
-```
-
-`claude plugin marketplace update topview-3d-builder` followed by
-`claude plugin update topview-3d-builder@topview-3d-builder` also works when the version number
-changed.
-
-### Generate from the frames
-
-The last stage of the workflow is generation. After the reference frames are rendered, the skill asks
-once whether you want to go on and generate an image or a video from them
-(`skills/topview-3d-cli/references/generate.md`). If you have not given the agent an image or video
-generation service, it points you to Topview. If you have another image or video generation API, give it
-to the agent and it uses that one. Before every call it shows you the service, the frames and the prompt
-and waits for your yes, and it never stores a credential in the project. Results are kept under
-`.topview-3d/generations/` and listed with `topview-3d-cli generation list <dir>`.
-
-Building, checking and rendering stay on your machine. The generation stage is the only one that can
-reach an outside service, and `topview-3d-cli` itself still makes no network request: `generation record`
-only copies files and writes the record.
-
-### Any agent with skills support
-
-`npx skills add git@github.com:topviewai/topview-3d-builder.git` and pick `topview-3d-cli`. This
-installs the skill only, without a plugin manifest or MCP server.
-
-### Remove an old version
-
-Remove the plugin from each agent you installed it in:
-
-```bash
-# ChatGPT (Codex app) and Codex CLI
-codex plugin remove topview-3d-builder@topview-3d-builder
-codex plugin marketplace remove topview-3d-builder
-
-# Cursor
-rm -rf ~/.cursor/plugins/local/topview-3d-builder
-
-# Claude Code
-claude plugin uninstall topview-3d-builder@topview-3d-builder
-claude plugin marketplace remove topview-3d-builder
-```
-
-If `codex plugin list` still shows an old version after removing it, delete its cache folder
-`~/.codex/plugins/cache/topview-3d-builder` and restart Codex.
-
-Remove a CLI installed outside a checkout with the tool that installed it:
-
-```bash
-rm -rf ~/.local/share/topview-3d-cli/venv   # shared environment (Windows: %LOCALAPPDATA%\topview-3d-cli\venv)
-pipx uninstall topview-3d-cli               # pipx
-uv cache clean topview-3d-cli               # uvx keeps only a cache
-```
-
-Older skill versions could also leave a `work/.venv` inside a project folder or a
-`pip install --user` copy; delete that folder or run `pip uninstall topview-3d-cli`.
-
-The user cache (`~/Library/Caches/topview-3d-cli`, `%LOCALAPPDATA%\topview-3d-cli\Cache`, or
-`~/.cache/topview-3d-cli`) holds Playwright and Chromium, the Studio's list of project folders, and
-the Topview sign-in used to send renders to a Canvas. Delete it only when you want all of that gone;
-the next render downloads the browser again and the next send asks you to sign in again.
-
-Project folders are yours and are never removed by any of the above; each keeps its scene in
-`.topview-3d/`.
-
-### Build the Codex upload archive
-
-```bash
-node scripts/package-codex-plugin.mjs            # warns about TODO fields in the manifest
-node scripts/package-codex-plugin.mjs --release  # fails on them
-```
-
-This packs the committed `HEAD` (not the working tree) into `dist/topview-3d-builder-plugin.zip`
-with a single `topview-3d-builder/` root folder holding `.codex-plugin/`, `.mcp.json`, the two images
-in `assets/` and `skills/`. It fails with a named reason when the manifest version is not semver,
-the manifest declares apps or does not point `mcpServers` at `./.mcp.json`, `.mcp.json` is missing,
-an image is missing or not a square 48–4096 px PNG
-of at most 5 MiB (see [assets/README.md](assets/README.md)), a skill directory is nested, hidden
-or has an over-long name or description, a file is a symlink or over 100 MiB, or the archive
-exceeds 100 MB.
-
-### Versions
-
-One version is shared by the CLI (`agent/topview_3d_cli/__init__.py`), the three plugin
-manifests and every `topview-3d-cli==` pin in the skill and this README:
-
-```bash
-python3 scripts/set_version.py 0.2.0     # rewrite all of them
-python3 scripts/set_version.py --check   # CI: exit 1 when any of them disagrees
-```
-
-The editor packages under `editor/` version independently and are not touched.
-
-## Install the CLI
-
-Requirements: Python 3.11 or newer and Node.js 20.6 or newer (with npm). The wheel bundles the
-renderer, the builder files it needs, Draco, and the built-in assets. Playwright and Chromium are
-downloaded once into the user cache (`~/Library/Caches/topview-3d-cli`, `%LOCALAPPDATA%\topview-3d-cli\Cache`,
-or `~/.cache/topview-3d-cli`) by `topview-3d-cli browser ensure`.
-
-### Without a checkout (pipx / uvx / shared environment)
-
-```bash
-pipx install topview-3d-cli
-# or, without a permanent install:
-uvx --python 3.12 topview-3d-cli@0.1.6 doctor
-# or, with neither pipx nor uv: one environment shared by every project
-python3 -m venv ~/.local/share/topview-3d-cli/venv
-~/.local/share/topview-3d-cli/venv/bin/python -m pip install topview-3d-cli==0.1.6
-topview-3d-cli browser ensure          # installs Playwright into the user cache and downloads Chromium
-topview-3d-cli doctor
-```
-
-On Windows the shared environment is `%LOCALAPPDATA%\topview-3d-cli\venv` and its command is
-`Scripts\topview-3d-cli.exe`. `pip install --user` is not used: many Python installs refuse it
-(PEP 668). A plain `uvx topview-3d-cli` fails when the default Python is older than 3.11, so pass
-`--python 3.12`. If pip is pointed at a mirror that does not have this version yet, retry
-with the official index: `pip install --index-url https://pypi.org/simple/ topview-3d-cli==0.1.6`.
-
-### Developer install from a checkout
-
-This path also needs pnpm 8 or newer (`corepack enable pnpm` is enough).
-
-```bash
-# macOS / Linux
-scripts/install.sh
-```
-
-```powershell
-# Windows (PowerShell 5.1 or 7)
-powershell -ExecutionPolicy Bypass -File scripts\install.ps1
-```
-
-The script:
-
-1. Installs the CLI in editable mode into one environment shared by every project:
-   `~/.local/share/topview-3d-cli/venv` (`$XDG_DATA_HOME/topview-3d-cli/venv` when set) on macOS and
-   Linux, `%LOCALAPPDATA%\topview-3d-cli\venv` on Windows. With `--dev` it uses the checkout's
-   `agent/.venv` instead. It uses `uv` when present, otherwise `python -m venv` plus pip. An
-   editable install uses the checkout as its runtime.
-2. Installs the renderer and Studio (Next.js) with `pnpm install --frozen-lockfile`. `--dev` also installs the rest of the editor workspace.
-3. Builds `@topview/3d-builder`.
-4. Runs `topview-3d-cli browser ensure` to download Playwright Chromium.
-5. Runs `topview-3d-cli doctor`.
-
-Re-running the script is safe and only repeats what is missing or outdated. Options:
-
-- `--dev` / `-Dev` installs the whole editor workspace and pytest.
-- `--install-uv` / `-InstallUv` installs uv when no Python 3.11+ exists.
-- `--skip-node` / `-SkipNode` and `--skip-browser` / `-SkipBrowser` skip those steps.
-
-Build the wheel and sdist into `dist/` (needs `pip install build`; nothing is published). The wheel
-includes a standalone Studio build, so this also builds Studio:
-
-```bash
-agent/.venv/bin/python scripts/build_dist.py   # after install.sh --dev
-```
-
-### Publishing
-
-`.github/workflows/release.yml` builds the wheel and sdist with `scripts/build_dist.py` and publishes
-them with PyPI Trusted Publishing (OIDC; no upload credential is stored in GitHub):
-
-- **TestPyPI:** run the workflow by hand (Actions → Release to PyPI → Run workflow). It uses the
-  `testpypi` environment and `https://test.pypi.org/legacy/`. TestPyPI refuses a version it already
-  has, so bump the version with `scripts/set_version.py` between test uploads.
-- **PyPI:** push a `v<version>` tag that matches `agent/topview_3d_cli/__init__.py`. It runs only
-  after the repository variable `PYPI_PUBLISH_ENABLED` is set to `true`, and uses the `pypi`
-  environment.
-
-Both environments need a Trusted Publisher for `topview-3d-cli` registered on pypi.org and
-test.pypi.org (owner `topviewai`, repository `topview-3d-builder`, workflow `release.yml`).
-
-### First scene
-
-```bash
-export PATH="$HOME/.local/share/topview-3d-cli/venv/bin:$PATH"   # Windows: $env:Path = "$env:LOCALAPPDATA\topview-3d-cli\venv\Scripts;$env:Path"; after --dev use agent/.venv
-topview-3d-cli doctor
-topview-3d-cli project init my-scene
-topview-3d-cli document apply my-scene agent/topview_3d_cli/tests/fixtures/local-project/operations.json
-topview-3d-cli asset search sit --kind pose         # built-in poses, with facets
-topview-3d-cli node batch my-scene changes.json     # add/update/delete nodes in one atomic batch
-topview-3d-cli evaluate my-scene                    # numerical checks, no browser
-topview-3d-cli inspect views my-scene               # numbers + renders for every camera
-topview-3d-cli renders show my-scene                # path of the latest contact sheet PNG
-```
-
-Every command prints one JSON object (plain `topview-3d-cli doctor` prints a readable report; use
-`topview-3d-cli doctor --json` for JSON, which always exits 0 and reports readiness in `ok`). Exit code 0 means success, 2 means invalid input, and 1 means
-execution failed. See [docs/topview-3d-cli.md](docs/topview-3d-cli.md) for commands, the project format, and
-error codes.
-
-Tests:
-
-```bash
-agent/.venv/bin/python -m pytest agent                                # requires --dev
-agent/.venv/bin/python scripts/lint_skills.py                         # skill frontmatter, wording, links, commands
-pnpm -C editor --filter @topview/3d-builder typecheck
-pnpm -C editor --filter @topview/3d-builder test:evaluate
-pnpm -C editor --filter @topview/3d-director-cli test
-```
-
-## For contributors
-
-The CLI contract and the `.topview-3d/` project format are documented in
-[docs/topview-3d-cli.md](docs/topview-3d-cli.md). Read that before changing either one.
+If Topview 3D Builder helps your work, **give the repo a ⭐** and share what you make. We'd love to see it.
 
 ## License
 
-- Code, schemas, and documentation: Apache License 2.0 ([LICENSE](LICENSE), [NOTICE](NOTICE)).
-- Built-in assets in `builtin-assets/` (character models, poses, pose covers, asset manifest):
-  [CC BY 4.0](builtin-assets/LICENSE). Attribution: "Scene3D built-in assets © Topview, CC BY 4.0"
-  (scope in [builtin-assets/NOTICE](builtin-assets/NOTICE)).
-
-The wheel declares `Apache-2.0 AND CC-BY-4.0` and ships both licence texts.
+- Code, schemas and docs: [Apache License 2.0](https://github.com/topviewai/topview-3d-builder/blob/main/LICENSE)
+- Built-in assets (characters, poses and more): [CC BY 4.0](https://github.com/topviewai/topview-3d-builder/blob/main/builtin-assets/LICENSE). Credit them as "Scene3D built-in assets © Topview, CC BY 4.0".
