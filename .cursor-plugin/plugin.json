@@ -2,7 +2,7 @@
   "$schema": "https://cursor.com/schemas/cursor-plugin/plugin.json",
   "name": "topview-3d-builder",
   "displayName": "Scene3D by TopView",
-  "description": "Build, check and render 3D director scenes on your own machine with the topview-3d-cli command: characters, poses, props, cameras and keyframes, fully offline.",
+  "description": "Build, check and render 3D director scenes on your own machine with the topview-3d-cli command: characters, poses, props, cameras and keyframes. Building and rendering run offline; the last step can hand the frames to an image or video generation service once you confirm.",
   "version": "0.1.6",
   "author": {
     "name": "Topview"

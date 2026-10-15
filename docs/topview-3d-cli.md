@@ -49,6 +49,9 @@ renaming or removing a command or option fails the lint until the skill is updat
 | `topview-3d-cli inspect views <dir> [views.json\|-] [--camera ID]… [--frames 0,24] [--primary ID]` | For each camera (default: every camera, frame 0), numerical checks plus one render run in `.topview-3d/renders/`. The spec is `{"expectedSceneSequence"?, "views": [{cameraNodeId, frames (1..3)}] (1..8), "width"?, "height"?, "primaryCameraNodeId"?}`. Characters are measured by their posed mesh bounds (`measurement`), so grounding and target framing follow the mesh, not the origin. Returns `renderStatus` per view, `checksComplete` with `checksBlockedBy` (stale scene, geometry issues, errors or below-ground warnings, the camera's target out of frame, incomplete renders; other nodes outside the frustum are informational), `primaryStoryPreview`, and records the evidence as the BOM `verification`. |
 | `topview-3d-cli renders list <dir>` | Render runs from each `render.json`, oldest first, with `stale` when the run's `sceneSequence` is not the current one. |
 | `topview-3d-cli renders show <dir> [runId] [--frame N]` | Absolute path, size and verified sha256 of the contact sheet (default) or one frame of a run (default: latest). `RENDER_NOT_FOUND` / `RENDER_IMAGE_INVALID` otherwise. |
+| `topview-3d-cli generation record <dir> <spec.json\|->` | Offline bookkeeping for an image or video made elsewhere from this project's render frames. The spec is `{"kind": "image"\|"video", "provider", "model"?, "prompt", "references": [{runId, frame?} \| {video: path}] (1..8; a video is one exported from Studio, `.mp4/.webm/.mov`: only its size and sha256 are kept, it is not copied into the project, and `stale` is `null` with `sceneChecked: false` because the scene is not checked against it), "outputs": [{"file": path} \| {"url": address}] (up to 8), "status"?: "completed"\|"failed", "notes"?}`. Local output files (`.png/.jpg/.jpeg/.webp` for images, `.mp4/.webm/.mov` for videos) are copied to `.topview-3d/generations/<id>/out-<n>.<ext>` with size and sha256; the reference frames are read through `renders show`, so each carries its sha256 and `stale`. It never opens a network connection or downloads a URL, and the spec has no credential field: unknown keys are rejected, and an address carrying a signature or token is refused. A failed spec writes nothing. Does not change the scene or `sceneSequence`. |
+| `topview-3d-cli generation list <dir>` | Recorded generations, oldest first, each with `sceneChangedSince` (the scene was edited after it was made). |
+| `topview-3d-cli generation show <dir> [id]` | One generation (default: the latest) with the absolute `path` of each output, after checking each file against its recorded sha256 (`GENERATION_FILE_INVALID` otherwise). |
 | `topview-3d-cli camera presets` | Camera preset ids, names and fov for `add_camera`. |
 | `topview-3d-cli bom get <dir>` | The plan / constraint record `.topview-3d/bom.json` (empty when missing) with `observed` nodes and `verification.stale` derived from the current scene. |
 | `topview-3d-cli bom checkpoint <dir> <patch.json\|->` | Merge `intent`, `relationships`, `constraints`, `cameras`, `notes`, `remove` and/or `modelReview` with compare-and-set on `expectedSceneSequence` and `expectedBomRevision`. `modelReview` needs current `inspect views` evidence; an omitted `sha256` is filled from it. |
@@ -197,6 +200,8 @@ This table must match `agent/topview_3d_cli/local_errors.py`; `test_local_cli.py
 | `DIRECTOR_NODE_NOT_FOUND` | 2 | A referenced node does not exist (the message names it; batches add details.index). |
 | `DOCUMENT_ENTITY_NOT_FOUND` | 2 | `document get --entity` found no node, clip or fcurves shard with that id. |
 | `RENDER_NOT_FOUND` | 2 | No such render run or frame image in .topview-3d/renders. |
+| `GENERATION_INVALID` | 2 | `generation record` spec is not JSON or fails its schema (kind, provider, prompt, references, outputs). |
+| `GENERATION_NOT_FOUND` | 2 | No such generation in .topview-3d/generations. |
 | `BOM_CHECKPOINT_INVALID` | 2 | `bom checkpoint` patch fails its schema or repeats/conflicts ids. |
 | `BOM_TOO_LARGE` | 2 | The merged BOM would exceed 64 KiB. |
 | `INVALID_DIRECTOR_BATCH` | 2 | Batch must contain 1..64 operations. |
@@ -233,6 +238,7 @@ This table must match `agent/topview_3d_cli/local_errors.py`; `test_local_cli.py
 | `POSE_ASSET_INVALID` | 1 | A pose file is larger than 1 MiB or lacks hips and 1-256 bone quaternions. |
 | `BOM_JSON_INVALID` | 1 | .topview-3d/bom.json is corrupt; fix or delete it. |
 | `RENDER_IMAGE_INVALID` | 1 | A render image is not a PNG or no longer matches the sha256 in render.json. |
+| `GENERATION_FILE_INVALID` | 1 | A recorded generation output is missing or no longer matches its sha256. |
 | `ASSET_FILE_MISSING` | 1 | A manifest entry points to a file that does not exist. |
 | `ASSET_NOT_AVAILABLE` | 1 | A character or prop model in the document has no local asset (see details). |
 | `RUNTIME_MISSING` | 1 | The renderer runtime is missing (incomplete install, or an unbuilt checkout). |

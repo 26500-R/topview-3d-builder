@@ -19,6 +19,32 @@ def test_shipped_skills_pass():
     assert lint.main(["lint_skills.py", str(ROOT / "skills")]) == 0
 
 
+def test_only_the_generate_reference_may_use_online_wording(tmp_path):
+    online = "Open https://example.com and use your API key. Call mcp__x__y and ask Claude."
+    skill = _skill(tmp_path, "Read `references/generate.md` and `references/other.md`.",
+                   references={"generate.md": online, "other.md": online})
+    errors = _errors(skill)
+    assert not any("generate.md" in e and ("URL" in e or "key wording" in e) for e in errors)
+    assert any("generate.md" in e and "MCP tool name" in e for e in errors)
+    assert any("generate.md" in e and "vendor-specific" in e for e in errors)
+    assert any("other.md" in e and "URL" in e for e in errors)
+    assert any("other.md" in e and "key wording" in e for e in errors)
+
+
+def test_main_skill_stays_free_of_online_wording_and_runs_the_generate_stage():
+    skill = ROOT / "skills" / "topview-3d-cli"
+    text = (skill / "SKILL.md").read_text(encoding="utf-8")
+    assert "references/generate.md" in text and "http" not in text
+    reference = (skill / "references" / "generate.md").read_text(encoding="utf-8")
+    assert "https://mcp-browser.topview.ai" in reference and "topview-browser" in reference
+    assert "generation record" in reference and "Wait for a clear yes" in reference
+    assert "omni" in reference and "<<<Video1>>>" in reference and "video-prompt.md" in reference
+    prompt = (skill / "references" / "video-prompt.md").read_text(encoding="utf-8")
+    assert "Render the white model video into a realistic cinematic feel." in prompt
+    assert "No subtitles, captions, readable text, logos, watermark, UI overlays." in prompt
+    assert "references/video-prompt.md" in text
+
+
 def test_command_table_matches_parser():
     table = command_table()
     assert {"project init", "node batch", "inspect views", "renders show", "doctor", "browser ensure"} <= set(table)
