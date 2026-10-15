@@ -8,6 +8,7 @@ import { Modal } from '../common/Modal'
 import { RangeSlider } from '../common/RangeSlider'
 import { cx } from '../common/cx'
 import { displayCameraName } from '../displayNames'
+import { ExportTimeInput, ExportTimeUnitToggle } from './ExportTimeInput'
 import { useExportDialog } from './hooks/useExportDialog'
 
 export function ExportDialog({ onClose }: { onClose: () => void }) {
@@ -161,7 +162,18 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
             <div className="t3d-export-field">
               <span className="t3d-export-field-head">
                 <span>{s.t('export.currentFrame')}</span>
-                <em>{Math.round(s.currentFrame)}</em>
+                <span className="t3d-export-field-values">
+                  <ExportTimeInput
+                    value={s.currentFrame}
+                    fps={s.fps}
+                    unit={s.timeUnit}
+                    disabled={s.exporting}
+                    ariaLabel={s.t('export.currentFrame')}
+                    title={s.t('export.timeInputHint')}
+                    onCommit={s.setCurrentFrame}
+                  />
+                  <ExportTimeUnitToggle value={s.timeUnit} disabled={s.exporting} onChange={s.setTimeUnit} />
+                </span>
               </span>
               <RangeSlider
                 aria-label={s.t('export.currentFrame')}
@@ -177,9 +189,28 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
             <div className="t3d-export-field">
               <span className="t3d-export-field-head">
                 <span>{s.t('export.frameRange')}</span>
-                <em>
-                  {s.start}–{s.end}
-                </em>
+                <span className="t3d-export-field-values">
+                  <ExportTimeInput
+                    value={s.start}
+                    fps={s.fps}
+                    unit={s.timeUnit}
+                    disabled={s.exporting}
+                    ariaLabel={s.t('export.frameStart')}
+                    title={s.t('export.timeInputHint')}
+                    onCommit={s.setStart}
+                  />
+                  <span aria-hidden>–</span>
+                  <ExportTimeInput
+                    value={s.end}
+                    fps={s.fps}
+                    unit={s.timeUnit}
+                    disabled={s.exporting}
+                    ariaLabel={s.t('export.frameEnd')}
+                    title={s.t('export.timeInputHint')}
+                    onCommit={s.setEnd}
+                  />
+                  <ExportTimeUnitToggle value={s.timeUnit} disabled={s.exporting} onChange={s.setTimeUnit} />
+                </span>
               </span>
               <DualRangeSlider
                 min={s.frameStart}
@@ -194,6 +225,16 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
               />
             </div>
           )}
+          <div className="t3d-export-field">
+            <span>{s.t('export.resolution')}</span>
+            <Dropdown
+              ariaLabel={s.t('export.resolution')}
+              value={String(s.exportHeight)}
+              disabled={s.exporting}
+              options={s.resolutionOptions}
+              onChange={s.setExportHeight}
+            />
+          </div>
           <div className="t3d-export-field">
             <span>{s.t('export.aspectRatio')}</span>
             <Dropdown

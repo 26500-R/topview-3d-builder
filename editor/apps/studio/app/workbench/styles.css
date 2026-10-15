@@ -10,7 +10,7 @@
     radial-gradient(900px 420px at 92% 0%, rgba(255, 255, 255, 0.04), transparent 52%),
     #101010;
   color: rgba(255, 255, 255, 0.92);
-  font: 14px/1.5 system-ui, -apple-system, "PingFang SC", "Segoe UI", sans-serif;
+  font: 14px/1.5 var(--t3d-font-sans);
 }
 
 .wb *,
@@ -561,7 +561,7 @@
   position: fixed;
   inset: 0;
   z-index: 40;
-  background: #131313;
+  background: #000;
 }
 
 .wb-studio-overlay .studio-root {

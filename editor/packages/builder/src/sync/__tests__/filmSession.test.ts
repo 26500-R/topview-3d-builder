@@ -108,6 +108,41 @@ test('失效版本禁播', () => {
   assert.equal(session.playback.getSnapshot().mode, 'idle')
 })
 
+test('删相机在同一条 Undo 里删掉它的分镜，撤销一起回来', () => {
+  const { session, editor, history, engine } = fixture()
+  Object.assign(engine, { removeNode() {}, endFollow() {} })
+  session.setWorkspaceMode('film')
+  session.beginFilmAddDraft()
+  const clipId = session.doc!.content.editorial!.sequences[0].clips[0].id
+  session.setFilmSelection({ kind: 'edit-clip', clipId })
+  const before = history.undoStack.length
+  session.deleteNode('camera_1')
+  assert.equal(session.doc!.content.editorial!.sequences[0].clips.length, 0)
+  assert.equal(editor.filmSelection, null)
+  assert.equal(history.undoStack.length, before + 1)
+  history.undo()
+  assert.deepEqual(session.doc!.content.editorial!.sequences[0].clips.map((c) => c.id), [clipId])
+})
+
+test('载入带失效相机分镜的草稿时自动清掉', () => {
+  const { session } = fixture()
+  const doc = makeEmptyDraft('film-session', 30, 120, CAM)
+  doc.content.editorial = {
+    version: 1,
+    activeSequenceId: 'sequence_1',
+    sequences: [{
+      id: 'sequence_1',
+      clips: [
+        { id: 'keep', cameraNodeId: 'camera_1', sourceFrameStart: 0, sourceFrameEnd: 9 },
+        { id: 'gone', cameraNodeId: 'deleted_cam', sourceFrameStart: 10, sourceFrameEnd: 19 },
+      ],
+    }],
+  }
+  session.setDoc(doc)
+  assert.deepEqual(session.doc!.content.editorial!.sequences[0].clips.map((c) => c.id), ['keep'])
+  assert.equal(doc.content.editorial.sequences[0].clips.length, 2)
+})
+
 test('拖拽预览不入历史，提交才一条 Undo，且不改 Scene 帧', () => {
   const { session, history, engine } = fixture()
   session.setWorkspaceMode('film')

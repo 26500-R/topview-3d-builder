@@ -58,7 +58,7 @@ interface ExportProfile {
 
 const KEY_FRAME_INTERVAL_SEC = 2
 const UNSUPPORTED_ENCODE_MESSAGE =
-  '当前浏览器不支持离线视频编码（需要 WebCodecs 的 H.264 或 VP9）。请改用最新版 Chrome 或 Edge。'
+  'This browser cannot encode video offline. Use the latest Chrome or Edge with H.264 or VP9 WebCodecs support.'
 
 function finishGpu(renderer: WebGLRenderer): void {
   const gl = renderer.getContext()
@@ -179,7 +179,7 @@ async function withEncoder(
     }
     source.close()
     await output.finalize()
-    if (!target.buffer) throw new Error('导出封装失败：没有生成视频数据')
+    if (!target.buffer) throw new Error('Export failed: no video data was generated')
     if (result.frames > 0 && result.filename) {
       await deliverBlob(
         new Blob([new Uint8Array(target.buffer)], { type: profile.mimeType }),
@@ -201,7 +201,7 @@ async function withEncoder(
 
 export async function exportVideo(opts: VideoExportOptions): Promise<ExportResult> {
   const cam = opts.stage.getCameraForExport(opts.cameraId)
-  if (!cam) throw new Error(`找不到相机 ${opts.cameraId}`)
+  if (!cam) throw new Error(`Camera not found: ${opts.cameraId}`)
   return withEncoder(opts.stage, opts.width, opts.height, opts.fps, opts.signal, async ({ draw, width, height, extension, capture }) => {
     let cancelled = false
     let frames = 0
@@ -232,7 +232,7 @@ export async function exportSequence(opts: SequenceExportOptions): Promise<Expor
   const issues = playbackIssues(opts.document, opts.sequenceId)
   if (issues.length > 0) throw new Error(issues[0].message)
   const sequence = getEditSequence(opts.document, opts.sequenceId)
-  if (!sequence) throw new Error(`找不到成片 ${opts.sequenceId}`)
+  if (!sequence) throw new Error(`Video not found: ${opts.sequenceId}`)
   const total = getEditSequenceDurationFrames(sequence.clips)
   if (total <= 0) return { cancelled: false, frames: 0 }
   return withEncoder(opts.stage, opts.width, opts.height, opts.fps, opts.signal, async ({ draw, width, height, extension, capture }) => {
@@ -254,9 +254,9 @@ export async function exportSequence(opts: SequenceExportOptions): Promise<Expor
         break
       }
       const resolved = resolveEditSequenceFrame(sequence.clips, sequenceFrame)
-      if (!resolved) throw new Error(`无法解析成片帧 ${sequenceFrame}`)
+      if (!resolved) throw new Error(`Cannot resolve video frame: ${sequenceFrame}`)
       const cam = opts.stage.getCameraForExport(resolved.cameraNodeId)
-      if (!cam) throw new Error(`找不到相机 ${resolved.cameraNodeId}`)
+      if (!cam) throw new Error(`Camera not found: ${resolved.cameraNodeId}`)
       frameOpts.cameraId = resolved.cameraNodeId
       draw(frameOpts, resolved.sourceFrame, cam)
       if (!(await capture(frames))) {

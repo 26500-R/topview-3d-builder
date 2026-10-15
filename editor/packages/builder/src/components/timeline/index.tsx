@@ -22,6 +22,7 @@ import {
   IconTrash,
 } from '../leftrail/icons'
 import { FilmModeSwitch } from '../film/FilmModeSwitch'
+import { IconFit } from '../film/icons'
 import { FilmPanel } from '../film'
 import { framesToSeconds, secondsToFrame } from '../../evaluate/timecode'
 import { LEFT_W, TIMELINE_FPS_MAX, TIMELINE_FPS_MIN, TRACK_INSET, frameFromContentClientX } from './constants'
@@ -32,7 +33,7 @@ import { Playhead } from './Playhead'
 import { Ruler } from './Ruler'
 import { TrackRow } from './TrackRow'
 import { cameraMotionOwnsKeyframes } from '../../evaluate/camera/cameraMotionExclusive'
-import { buildTree, flattenTree, selectedTimelineNodeId, timelineScale, timelineSheetRuler } from './utils'
+import { buildTree, flattenTree, selectedTimelineNodeId, timelineContentFrameEnd, timelineFitPx, timelineSheetRuler } from './utils'
 
 export function TimelinePanel() {
   const { useStore } = useDirector()
@@ -112,10 +113,25 @@ function SceneTimeline() {
   )
 
   const tl = doc?.content.timeline
+  const anim = tl?.animation
   const frameCount = tl
-    ? Math.max(tl.frameEnd, clipMovePreview?.frameEnd ?? tl.frameEnd, clipResizePreview?.frameEnd ?? tl.frameEnd) - tl.frameStart + 1
+    ? timelineContentFrameEnd(tl.frameEnd, [
+      ...(anim?.cameraMotionClips ?? []),
+      ...(anim?.pathMotionClips ?? []),
+      ...(anim?.motionClips ?? []),
+      ...(clipMovePreview ? [clipMovePreview] : []),
+      ...(clipResizePreview ? [clipResizePreview] : []),
+    ]) - tl.frameStart + 1
     : 1
-  const scale = tl ? timelineScale(pxPerFrame, frameCount, viewW - LEFT_W - TRACK_INSET) : pxPerFrame
+  const trackAvail = viewW - LEFT_W - TRACK_INSET
+  const scale = pxPerFrame
+  const fitTimeline = () => {
+    const next = timelineFitPx(frameCount, trackAvail)
+    if (next == null) return
+    setPxPerFrame(next)
+    const scroller = scrollRef.current
+    if (scroller) scroller.scrollLeft = 0
+  }
   scaleRef.current = scale
   const snap = useSnapFrame(scale)
   const { rulerRef, scrubHandlers } = useTimelineScrub(
@@ -318,13 +334,18 @@ function SceneTimeline() {
             {t('timeline.zoom')}
             <RangeSlider
               min={0.2}
-              max={8}
+              max={20}
               step={0.1}
               aria-label={t('timeline.zoom')}
               value={pxPerFrame}
               onChange={(e) => setPxPerFrame(Number(e.target.value))}
             />
           </label>
+          <Tooltip label={t('film.fit')} side="top">
+            <button type="button" className="t3d-timeline-icon-btn" disabled={!tl || trackAvail <= 0} onClick={fitTimeline}>
+              <IconFit />
+            </button>
+          </Tooltip>
           <div className="t3d-timeline-range-cluster">
             <TimelineRangeField
               label={t('timeline.rangeStart')}

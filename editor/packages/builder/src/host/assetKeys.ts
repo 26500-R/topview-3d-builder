@@ -48,6 +48,6 @@ export function resolveMediaKey(ref: {
   if (isResolvableAssetKey(key)) return key
 
   throw new Error(
-    `媒体引用必须是 ${LIBRARY_ASSET_PREFIX} 或用户私有 S3 key，收到: ${raw.slice(0, 160)}`,
+    `Media reference must be a ${LIBRARY_ASSET_PREFIX} key or a private S3 key, received: ${raw.slice(0, 160)}`,
   )
 }

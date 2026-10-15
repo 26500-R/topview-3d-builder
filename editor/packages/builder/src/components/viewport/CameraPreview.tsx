@@ -9,7 +9,8 @@ import { displayCameraName } from '../displayNames'
 import { cx } from '../common/cx'
 import { Tooltip } from '../common/Tooltip'
 import { useViewportAspect } from '../hooks/useViewportAspect'
-import { IconChevron, IconLocate } from '../leftrail/icons'
+import { CameraPreviewUpdated } from './CameraPreviewUpdated'
+import { IconCamera, IconChevron } from '../leftrail/icons'
 
 export function CameraPreview() {
   const t = useT()
@@ -24,6 +25,7 @@ export function CameraPreview() {
   const filmDraft = useStore((s) => s.filmAddDraft)
   const followMode = useStore((s) => s.followMode)
   const setFollowMode = useStore((s) => s.setFollowMode)
+  const saved = useStore((s) => s.cameraPilotSaved)
   const [open, setOpen] = useState(true)
 
   useEffect(() => {
@@ -44,10 +46,10 @@ export function CameraPreview() {
   return (
     <div className={cx('t3d-preview', !open && 'is-collapsed')}>
       <Tooltip label={open ? t('viewport.collapsePreview') : t('viewport.expandPreview')} side="top">
-        <button type="button" className="t3d-preview-title" onClick={() => setOpen((v) => !v)}>
-          <IconChevron className={cx('t3d-inspector-chevron', open && 'is-open')} />
+        <button type="button" className="t3d-preview-title" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
           {t('viewport.previewTitle')}
           {followMode && !film && <span className="t3d-preview-mode-badge">{t('viewport.cameraViewActive')}</span>}
+          <IconChevron className={cx('t3d-inspector-chevron', open && 'is-open')} />
         </button>
       </Tooltip>
       <div className="t3d-preview-body" hidden={!open}>
@@ -67,7 +69,7 @@ export function CameraPreview() {
           onClick={() => setFollowMode(!followMode)}
           disabled={!ready || !activeCameraId}
         >
-          <IconLocate />
+          <IconCamera />
           {t(followMode ? 'viewport.exitCameraView' : 'viewport.enterCameraView')}
         </button>}
         <div
@@ -77,11 +79,11 @@ export function CameraPreview() {
           }}
         >
           <canvas ref={ref} className="t3d-preview-canvas" />
+          {ready && !film && saved?.cameraId === previewCameraId && (
+            <CameraPreviewUpdated key={saved.savedAt} savedAt={saved.savedAt} />
+          )}
           {!ready && <div className="t3d-preview-loading">{t('common.loading')}</div>}
         </div>
-        {!film && <p className="t3d-preview-hint" role="status">
-          {t(followMode ? 'viewport.cameraViewActiveHint' : 'viewport.cameraViewHint')}
-        </p>}
       </div>
     </div>
   )

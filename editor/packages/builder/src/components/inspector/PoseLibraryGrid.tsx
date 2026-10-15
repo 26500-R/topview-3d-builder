@@ -5,7 +5,7 @@ import {
 } from '../../data/poseLibraryBank'
 import { useDirector } from '../../bridge/DirectorContext'
 import { hydratePoseBank, isPoseLibraryCatalogHydrated } from './hydratePoseBank'
-import { useT } from '../../locale'
+import { useLocale, useT } from '../../locale'
 import { cx } from '../common/cx'
 
 const POSE_ATLAS_SKELETON_COUNT = 8
@@ -30,6 +30,9 @@ export function PoseLibraryGrid({
   onSelect: (id: string) => void
 }) {
   const t = useT()
+  const locale = useLocale()
+  const poseLabel = (pose: PoseLibraryRecord) =>
+    locale.startsWith('zh') ? pose.nameZh || pose.name : pose.name || pose.nameZh
   const { adapter, stage } = useDirector()
   const [tag, setTag] = useState('all')
   const [catalogGen, setCatalogGen] = useState(0)
@@ -87,8 +90,8 @@ export function PoseLibraryGrid({
                 key={pose.id}
                 type="button"
                 disabled={disabled}
-                title={pose.nameZh || pose.name}
-                aria-label={pose.nameZh || pose.name}
+                title={poseLabel(pose)}
+                aria-label={poseLabel(pose)}
                 aria-pressed={active}
                 className={cx('t3d-pose-atlas-cell', active && 'is-active')}
                 onClick={() => onSelect(pose.id)}

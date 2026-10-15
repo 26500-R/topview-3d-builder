@@ -75,7 +75,7 @@ function InspectorWriteBoundary({ locked, children }: { locked: boolean; childre
   const guardWriteControl = (event: SyntheticEvent) => {
     if (!locked || !(event.target instanceof Element)) return
     if (event.nativeEvent instanceof KeyboardEvent && (event.nativeEvent.key === 'Tab' || event.nativeEvent.key === 'Escape')) return
-    if (event.target.closest('.t3d-inspector-section-head, .t3d-inspector-tab')) return
+    if (event.target.closest('.t3d-inspector-section-head, .t3d-inspector-section-toggle, .t3d-inspector-tab')) return
     if (!event.target.closest('button, input, select, textarea, label, [contenteditable="true"], [role="slider"]')) return
     event.preventDefault()
     event.stopPropagation()

@@ -8,7 +8,7 @@
         "mcp:tools"
       ],
       "http_headers": {
-        "X-Topview-Plugin-Version": "0.1.7",
+        "X-Topview-Plugin-Version": "0.1.8",
         "X-Topview-Plugin-Client": "codex"
       }
     }

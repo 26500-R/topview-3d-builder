@@ -1,7 +1,20 @@
-import { TUTORIAL_CARD_GAP, TUTORIAL_VIEW_PAD } from './constants'
+import {
+  TUTORIAL_CARD_GAP,
+  TUTORIAL_PAGE_HASH,
+  TUTORIAL_PAGE_URL,
+  TUTORIAL_VIEW_PAD,
+} from './constants'
 import type { BoxRect, CardPlacement, CardSize, TutorialCardSide, TutorialStep } from './types'
 
 const SIDES: TutorialCardSide[] = ['top', 'bottom', 'left', 'right']
+
+/**
+ * 教学页地址：`?lang=` 交给 topview.ai 站点按语言切换（取值与包内 15 语 id 一致），
+ * 锚点必须放在 query 之后。
+ */
+export function buildTutorialUrl(locale: string): string {
+  return `${TUTORIAL_PAGE_URL}?lang=${encodeURIComponent(locale)}#${TUTORIAL_PAGE_HASH}`
+}
 
 export function clamp(value: number, min: number, max: number): number {
   if (max < min) return min

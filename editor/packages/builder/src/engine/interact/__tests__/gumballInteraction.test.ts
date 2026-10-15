@@ -8,7 +8,7 @@ import {
   Vector3,
 } from 'three'
 import { EDITOR_LAYER } from '../../core/Layers'
-import { buildGumball, GumballHandleType, setGumballScaleVisible, type GumballHandleUserData } from '../gumball/buildGumball'
+import { buildGumball, GumballHandleType, setGumballDragFocus, setGumballScaleVisible, type GumballHandleUserData } from '../gumball/buildGumball'
 import {
   applyGumballMultiDelta,
   beginDrag,
@@ -62,6 +62,25 @@ describe('pickHandle', () => {
         ray.layers.set(EDITOR_LAYER)
         assert.equal(pickHandle(ray, [proxy])?.key, `plane:${axis}`)
       }
+    }
+  })
+})
+
+describe('setGumballDragFocus', () => {
+  it('拖拽时只保留当前手柄的可视材质，结束后全部恢复', () => {
+    const build = buildGumball()
+    const active = build.interactiveMeshes
+      .map((mesh) => mesh.userData.gumball as GumballHandleUserData)
+      .find((data) => data.key === 'translate:x')!
+    setGumballDragFocus(active, build.interactiveMeshes)
+    for (const mesh of build.interactiveMeshes) {
+      const data = mesh.userData.gumball as GumballHandleUserData
+      for (const mat of data.highlightMaterials) assert.equal(mat.visible, data.key === active.key)
+    }
+    setGumballDragFocus(null, build.interactiveMeshes)
+    for (const mesh of build.interactiveMeshes) {
+      const data = mesh.userData.gumball as GumballHandleUserData
+      for (const mat of data.highlightMaterials) assert.equal(mat.visible, true)
     }
   })
 })

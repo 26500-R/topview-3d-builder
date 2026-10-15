@@ -164,6 +164,7 @@ function applyOrbitTargetFromState(
 }
 
 export interface EditorCameraHost {
+  beforeNavigate?(): void
   invalidate(): void
   getSceneMeshes(): THREE.Object3D[]
   getOrbitPivot(): Vec3
@@ -210,6 +211,7 @@ export class EditorCameraController {
   }
 
   setKey(key: string, down: boolean): void {
+    if (down && this.enabled && ['w', 'a', 's', 'd', 'q', 'e'].includes(key)) this.host.beforeNavigate?.()
     if (down) this.keys.add(key)
     else this.keys.delete(key)
   }
@@ -226,13 +228,23 @@ export class EditorCameraController {
     this.orbitState = null
   }
 
+  /**
+   * 外部直接改了相机 fov（操控相机时属性面板调焦距）。阻尼状态里的 fov 必须同步，
+   * 否则下一次飞行 / 环绕的 step 会用旧值把 fov 写回去，焦距改动被吞掉。
+   */
+  syncFov(fov: number): void {
+    if (this.cur) this.cur.fov = fov
+    if (this.target) this.target.fov = fov
+  }
+
   /** 每次右键按下都重新取画面中心做支点，不要沿用上一次拖动留下的支点。 */
   beginOrbitGesture(): void {
     this.orbitState = null
   }
 
   applyLookDelta(dx: number, dy: number): void {
-    if (!this.enabled || !this.looking) return
+    if (!this.enabled || !this.looking || (dx === 0 && dy === 0)) return
+    this.host.beforeNavigate?.()
     this.orbitState = null
     const tgt = this.ensureTarget()
     tgt.yaw -= dx * STAGE_CAMERA_LOOK_SENSITIVITY * 180
@@ -242,6 +254,7 @@ export class EditorCameraController {
 
   applyZoomDelta(dy: number): void {
     if (!this.enabled || dy === 0) return
+    this.host.beforeNavigate?.()
     this.orbitState = null
     const tgt = this.ensureTarget()
     const { forward } = basisFromAngles(tgt.pitch, tgt.yaw, tgt.roll)
@@ -264,6 +277,7 @@ export class EditorCameraController {
 
   applyOrbitDelta(dx: number, dy: number): void {
     if (!this.enabled || (dx === 0 && dy === 0)) return
+    this.host.beforeNavigate?.()
     const tgt = this.ensureTarget()
     const cur = this.cur
 
@@ -289,7 +303,8 @@ export class EditorCameraController {
   }
 
   applyPanDelta(dx: number, dy: number): void {
-    if (!this.enabled) return
+    if (!this.enabled || (dx === 0 && dy === 0)) return
+    this.host.beforeNavigate?.()
     this.orbitState = null
     const tgt = this.ensureTarget()
     const { right, up } = basisFromAngles(tgt.pitch, tgt.yaw, tgt.roll)

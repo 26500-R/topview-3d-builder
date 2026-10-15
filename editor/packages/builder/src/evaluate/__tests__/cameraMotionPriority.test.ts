@@ -2,7 +2,12 @@ import { test } from 'vitest'
 import assert from 'node:assert/strict'
 import { makeEmptyDraft } from '../../contract/emptyDraft'
 import type { BakedCurve, CameraMotionClip, DraftNode, PathMotionClip } from '../../contract/types'
-import { makeKeyframe } from '../curves/KeyframeTrack'
+import { makeKeyframe as makeDefaultKeyframe } from '../curves/KeyframeTrack'
+
+/** 本文件断言的是求值优先级，数值按匀速推算，所以显式用 linear，不吃默认缓动。 */
+function makeKeyframe(frame: number, value: number[]) {
+  return { ...makeDefaultKeyframe(frame, value), interpolation: 'linear' as const }
+}
 import { FCurveSet } from '../curves/FCurveSet'
 import { sceneFromDocument } from '../sceneFromDocument'
 import { evalAt } from './helpers'

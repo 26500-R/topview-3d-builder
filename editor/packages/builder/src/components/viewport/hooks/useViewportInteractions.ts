@@ -1,7 +1,8 @@
 import { useEffect, useState, type RefObject } from 'react'
 import { useDirector } from '../../../bridge/DirectorContext'
-import { cameraMotionActiveAtFrame, cameraPositionDragMoved } from '../../../evaluate/camera/cameraMotionExclusive'
-import { buildNodeSelection, isLookAtPickTarget, isPathApplyPickTarget, toggleNodeIds, unlockedNodeIds } from '../../../stores/nodeSelection'
+import { cameraMotionActiveAtFrame } from '../../../evaluate/camera/cameraMotionExclusive'
+import { positionMoved, userPathBindingAtFrame } from '../../../evaluate/path/pathBindMove'
+import { buildNodeSelection, isLookAtPickTarget, isPathApplyPickTarget, isPlaceOnSupportPickTarget, toggleNodeIds, unlockedNodeIds } from '../../../stores/nodeSelection'
 import { attachedGizmoIds, cameraGizmoCommitPatch, isCameraNode, isPathNode, readGizmoTransform } from '../utils'
 
 interface ViewportSelectionBox {
@@ -18,6 +19,7 @@ export function useViewportInteractions(ref: RefObject<HTMLCanvasElement>) {
   const film = useStore((s) => s.workspaceMode === 'film')
   const lookAtPickingId = useStore((s) => s.lookAtPickingId)
   const pathApplyPickingId = useStore((s) => s.pathApplyPickingId)
+  const placeOnSupportPickingId = useStore((s) => s.placeOnSupportPickingId)
   const [selectionBox, setSelectionBox] = useState<ViewportSelectionBox | null>(null)
   const [lookAtHoverId, setLookAtHoverId] = useState<string | null>(null)
 
@@ -27,6 +29,7 @@ export function useViewportInteractions(ref: RefObject<HTMLCanvasElement>) {
 
     let gizmoProp: 'position' | 'rotation' | 'scale' | null = null
     const cameraDragStart = new Map<string, number[]>()
+    let pathBindDragCameraId: string | null = null
     const writeCameraRot = (nodeId: string, commit: boolean) => {
       const v = stage.readAttachedTransform('rotation', nodeId)
       if (v) useStore.getState().writeCameraRotation(nodeId, { x: v[0], y: v[1], z: v[2] }, commit)
@@ -79,10 +82,13 @@ export function useViewportInteractions(ref: RefObject<HTMLCanvasElement>) {
         }
         gizmoProp = stage.gizmoInteractionProp()
         cameraDragStart.clear()
+        pathBindDragCameraId = null
         if (gizmoProp === 'position') {
           const frame = Math.round(s.frame)
           for (const id of ids) {
-            if (!isCameraNode(s.doc, id) || !cameraMotionActiveAtFrame(s.doc, id, frame)) continue
+            if (!isCameraNode(s.doc, id)) continue
+            // 轨迹绑定在求值时盖住位移；记下起点才能在松手时判断这次拖动是否真的发生。
+            if (!userPathBindingAtFrame(s.doc, id, frame)) continue
             const pos = stage.readAttachedTransform('position', id)
             if (pos) cameraDragStart.set(id, pos.slice())
           }
@@ -100,16 +106,18 @@ export function useViewportInteractions(ref: RefObject<HTMLCanvasElement>) {
         // 最终提交发生在 interaction 内，push 被抑制；endInteraction 把整次拖拽
         // 压成一条三合一快照命令。多选时一次提交全部附着节点。
         let label = '拖拽变换'
-        let motionDragBlocked = false
+        let pathBindNodeId: string | null = null
         const frame = Math.round(s.frame)
         const items: { nodeId: string; position?: number[]; rotation?: number[]; scale?: number[] }[] = []
         for (const id of ids) {
           if (isCameraNode(s.doc, id)) {
-            // 当前帧运镜独占位置：空间轴拖拽不落盘，松手后 gizmo 对齐求值机位形成回弹。
-            if (prop === 'position' && cameraMotionActiveAtFrame(s.doc, id, frame)) {
-              const end = stage.readAttachedTransform('position', id)
-              if (cameraPositionDragMoved(dragStarts.get(id), end)) motionDragBlocked = true
-              continue
+            if (
+              prop === 'position'
+              && !pathBindNodeId
+              && userPathBindingAtFrame(s.doc, id, frame)
+              && (pathBindDragCameraId === id || positionMoved(dragStarts.get(id), stage.readAttachedTransform('position', id)))
+            ) {
+              pathBindNodeId = id
             }
             const pos = stage.readAttachedTransform('position', id)
             const rot = stage.readAttachedTransform('rotation', id)
@@ -119,6 +127,16 @@ export function useViewportInteractions(ref: RefObject<HTMLCanvasElement>) {
             }
             label = ids.length > 1 ? '提交多选变换' : prop === 'rotation' ? '旋转相机' : '移动相机'
             continue
+          }
+          if (
+            prop === 'position'
+            && !pathBindNodeId
+            && userPathBindingAtFrame(s.doc, id, frame)
+          ) {
+            const node = s.doc?.content.nodes.find((item) => item.id === id)
+            if (positionMoved(node?.transform.position, stage.readAttachedTransform('position', id))) {
+              pathBindNodeId = id
+            }
           }
           const xf = readGizmoTransform(stage, id)
           const item: { nodeId: string; position?: number[]; rotation?: number[]; scale?: number[] } = { nodeId: id }
@@ -131,7 +149,7 @@ export function useViewportInteractions(ref: RefObject<HTMLCanvasElement>) {
         }
         if (items.length) s.commitNodeTransforms(frame, items)
         s.endInteraction(label)
-        if (motionDragBlocked) s.notifyCameraMotionDragBlocked()
+        if (pathBindNodeId) s.notifyPathBindMoveBlocked(pathBindNodeId)
       }
     }
     const onGizmoObjectChange = () => {
@@ -152,8 +170,17 @@ export function useViewportInteractions(ref: RefObject<HTMLCanvasElement>) {
       // 视口和 Inspector 才能跟上；松手时 commitNodeTransforms 一次落盘。
       for (const id of ids) {
         if (isCameraNode(s.doc, id)) {
+          if (
+            prop === 'position'
+            && !pathBindDragCameraId
+            && userPathBindingAtFrame(s.doc, id, Math.round(s.frame))
+            && positionMoved(cameraDragStart.get(id), stage.readAttachedTransform('position', id))
+          ) {
+            pathBindDragCameraId = id
+          }
           if (prop === 'rotation') writeCameraRot(id, false)
           else if (!(prop === 'position' && cameraMotionActiveAtFrame(s.doc, id, Math.round(s.frame)))) {
+            // 运镜片段覆盖当前帧时，拖拽中不改曲线，避免求值把 gizmo 拉回去。松手再整段平移。
             const v = stage.readAttachedTransform('position', id)
             if (v) s.writeCameraWorldPos(id, { x: v[0], y: v[1], z: v[2] }, false)
           }
@@ -206,7 +233,7 @@ export function useViewportInteractions(ref: RefObject<HTMLCanvasElement>) {
         if (!hit || hit.id === s.pathEditingId) return
       }
       if (hit && s.doc?.content.nodes.find((node) => node.id === hit.id)?.locked) return
-      if (s.lookAtPickingId || s.pathApplyPickingId) {
+      if (s.lookAtPickingId || s.pathApplyPickingId || s.placeOnSupportPickingId) {
         if (!hit) return
         s.select({ kind: 'node', nodeId: hit.id, nodeIds: [hit.id] })
         return
@@ -216,6 +243,7 @@ export function useViewportInteractions(ref: RefObject<HTMLCanvasElement>) {
         const current = s.selection?.kind === 'node' ? s.selection : null
         const next = toggleNodeIds(current?.nodeIds, current?.nodeId, hit.id)
         s.select(buildNodeSelection(next))
+        s.openInspector()
         if (hit.camera && next.includes(hit.id)) s.setActiveCamera(hit.id)
         return
       }
@@ -226,6 +254,7 @@ export function useViewportInteractions(ref: RefObject<HTMLCanvasElement>) {
         return
       }
       s.select(buildNodeSelection([hit.id]))
+      s.openInspector()
       if (hit.camera) s.setActiveCamera(hit.id)
     }
     stage.setNavPickHandlers({
@@ -246,12 +275,12 @@ export function useViewportInteractions(ref: RefObject<HTMLCanvasElement>) {
           return
         }
         const pickedIds = stage.pickIdsInScreenRect(wrap ?? canvas, rect)
-        if (s.lookAtPickingId || s.pathApplyPickingId) {
+        if (s.lookAtPickingId || s.pathApplyPickingId || s.placeOnSupportPickingId) {
           const target = pickedIds.find((id) => {
             const node = s.doc?.content.nodes.find((item) => item.id === id)
-            return s.lookAtPickingId
-              ? isLookAtPickTarget(node, s.lookAtPickingId)
-              : isPathApplyPickTarget(node, s.pathApplyPickingId!)
+            if (s.lookAtPickingId) return isLookAtPickTarget(node, s.lookAtPickingId)
+            if (s.pathApplyPickingId) return isPathApplyPickTarget(node, s.pathApplyPickingId)
+            return isPlaceOnSupportPickTarget(node, s.placeOnSupportPickingId!)
           })
           if (target) s.select(buildNodeSelection([target]))
           return
@@ -264,6 +293,7 @@ export function useViewportInteractions(ref: RefObject<HTMLCanvasElement>) {
           return
         }
         s.select(buildNodeSelection(ids))
+        s.openInspector()
       },
       onClick: ({ clientX, clientY, shiftKey }) => {
         const s = useStore.getState()
@@ -347,12 +377,14 @@ export function useViewportInteractions(ref: RefObject<HTMLCanvasElement>) {
         return
       }
       const s = useStore.getState()
-      if (s.lookAtPickingId || s.pathApplyPickingId) {
+      if (s.lookAtPickingId || s.pathApplyPickingId || s.placeOnSupportPickingId) {
         const hit = pickAtClient(e.clientX, e.clientY)
         const node = hit ? s.doc?.content.nodes.find((item) => item.id === hit.id) : undefined
         const hover = s.lookAtPickingId
           ? hit && isLookAtPickTarget(node, s.lookAtPickingId)
-          : hit && isPathApplyPickTarget(node, s.pathApplyPickingId!)
+          : s.pathApplyPickingId
+            ? hit && isPathApplyPickTarget(node, s.pathApplyPickingId)
+            : hit && isPlaceOnSupportPickTarget(node, s.placeOnSupportPickingId!)
         setLookAtHoverId(hover ? hit!.id : null)
       }
       if (!s.pathDrawMode && !s.followMode && s.poseEditingId) {
@@ -405,6 +437,12 @@ export function useViewportInteractions(ref: RefObject<HTMLCanvasElement>) {
         s.cancelPathApplyPick()
         return
       }
+      if (s.placeOnSupportPickingId) {
+        e.preventDefault()
+        e.stopPropagation()
+        s.cancelPlaceOnSupportPick()
+        return
+      }
       if (s.poseEditingId) {
         e.preventDefault()
         e.stopPropagation()
@@ -450,8 +488,8 @@ export function useViewportInteractions(ref: RefObject<HTMLCanvasElement>) {
   }, [stage, useStore, film, ref])
 
   useEffect(() => {
-    if (!lookAtPickingId && !pathApplyPickingId) setLookAtHoverId(null)
-  }, [lookAtPickingId, pathApplyPickingId])
+    if (!lookAtPickingId && !pathApplyPickingId && !placeOnSupportPickingId) setLookAtHoverId(null)
+  }, [lookAtPickingId, pathApplyPickingId, placeOnSupportPickingId])
 
   return { selectionBox, lookAtHoverId }
 }

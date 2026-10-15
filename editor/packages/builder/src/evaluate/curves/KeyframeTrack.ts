@@ -66,7 +66,86 @@ export function sampleKeyframesInto(
   extrapolate: KeyframeExtrapolate = true,
 ): boolean {
   if (kfs.length === 0) return false
+  return sampleSortedInto(sortedKeyframes(kfs), frame, out, extrapolate)
+}
+
+/** 未变化轴向的判定阈值（度）。小于它视为「没动」，插值时钉死，避免欧拉分解的浮点噪声。 */
+const EULER_AXIS_EPS_DEG = 1e-3
+
+/** 把角度折到离 ref 最近的等价值（±360° 的整数倍）。 */
+function wrapNearDeg(v: number, ref: number): number {
+  return v - 360 * Math.round((v - ref) / 360)
+}
+
+/**
+ * 把一个 XYZ 欧拉角（度）对齐到离 prev 最近的等价表示，保证「只转了一根轴」的意图不被
+ * 欧拉分解的多解性扭曲。
+ *
+ * 同一个朝向有两组 XYZ 欧拉表示：(x, y, z) 与 (x+180, 180−y, z+180)。绕 Y 转超过 90° 时，
+ * Three.js 从四元数 / 矩阵读回来的是后一组，例如纯 Y 150° 读成 (180, 30, 180)。
+ * 若直接逐分量插值，(0,0,0) → (180,30,180) 的中间帧 X、Z 会从 0 摆到 180，看上去像
+ * 「改 Y 联动了 X/Z」。这里在两组表示里挑与 prev 欧氏距离最小的那组，X/Z 再折到最近的
+ * 360° 等价值（pitch / roll 不做整圈翻转）；Y 保持用户写入的圈数。
+ * 与 prev 差异小于阈值的轴向直接钉成 prev 的值。
+ */
+export function alignEulerDeg(prev: readonly number[], cur: readonly number[]): number[] {
+  const px = prev[0] ?? 0
+  const py = prev[1] ?? 0
+  const pz = prev[2] ?? 0
+  const cx = cur[0] ?? 0
+  const cy = cur[1] ?? 0
+  const cz = cur[2] ?? 0
+  const direct = [wrapNearDeg(cx, px), cy, wrapNearDeg(cz, pz)]
+  const flipped = [wrapNearDeg(cx + 180, px), wrapNearDeg(180 - cy, py), wrapNearDeg(cz + 180, pz)]
+  const cost = (v: number[]) => (v[0] - px) ** 2 + (v[1] - py) ** 2 + (v[2] - pz) ** 2
+  const best = cost(flipped) < cost(direct) ? flipped : direct
+  if (Math.abs(best[0] - px) < EULER_AXIS_EPS_DEG) best[0] = px
+  if (Math.abs(best[1] - py) < EULER_AXIS_EPS_DEG) best[1] = py
+  if (Math.abs(best[2] - pz) < EULER_AXIS_EPS_DEG) best[2] = pz
+  return best
+}
+
+const _eulerCache = new WeakMap<Keyframe[], Keyframe[]>()
+
+/** 按帧升序，依次把每个键对齐到前一个键，让整条旋转轨道在欧拉表示上连续。 */
+function continuousEulerKeyframes(kfs: Keyframe[]): Keyframe[] {
+  let out = _eulerCache.get(kfs)
+  if (out) return out
   const sorted = sortedKeyframes(kfs)
+  out = []
+  for (let i = 0; i < sorted.length; i++) {
+    const k = sorted[i]
+    if (i === 0 || k.value.length < 3) {
+      out.push(k)
+      continue
+    }
+    const prev = out[i - 1]
+    out.push({ ...k, value: alignEulerDeg(prev.value, k.value) })
+  }
+  _eulerCache.set(kfs, out)
+  return out
+}
+
+/**
+ * 旋转（欧拉角，度）关键帧采样：先把轨道连续化（见 alignEulerDeg），再逐分量插值。
+ * 只改了一根轴时，其余两轴在整段过渡里严格保持关键帧的值。
+ */
+export function sampleEulerKeyframesInto(
+  kfs: Keyframe[],
+  frame: number,
+  out: number[],
+  extrapolate: KeyframeExtrapolate = true,
+): boolean {
+  if (kfs.length === 0) return false
+  return sampleSortedInto(continuousEulerKeyframes(kfs), frame, out, extrapolate)
+}
+
+function sampleSortedInto(
+  sorted: Keyframe[],
+  frame: number,
+  out: number[],
+  extrapolate: KeyframeExtrapolate,
+): boolean {
   const write = (src: number[]) => {
     const n = Math.max(src.length, out.length)
     for (let i = 0; i < n; i++) out[i] = src[i] ?? 0
@@ -110,6 +189,7 @@ export function makeKeyframe(frame: number, value: number[]): Keyframe {
     id: `kf_${Math.random().toString(36).slice(2, 10)}`,
     frame: Math.round(frame),
     value: [...value],
-    interpolation: 'linear',
+    // 新建关键帧默认平滑缓动（与 Inspector 回退值、fcurves 新键 bezier 无手柄一致）
+    interpolation: 'ease-in-out',
   }
 }

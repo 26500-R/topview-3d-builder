@@ -3,6 +3,7 @@ import { EDITOR_LAYER } from '../core/Layers'
 import {
   buildGumball,
   pickHandle,
+  setGumballDragFocus,
   setGumballScaleVisible,
   setHandleHovered,
   GumballHandleType,
@@ -30,10 +31,38 @@ import { trackStageAltModifier } from './stageAltModifier'
 export type { GizmoDuplicateItem }
 
 type Mode = 'translate' | 'rotate' | 'scale'
-type GizmoListener = (event: { type: string; value?: boolean }) => void
+
+/** 悬停手柄信息，供 UI 展示 Tooltip；`null` 表示不再悬停在任何手柄上。 */
+export interface GizmoHoverInfo {
+  mode: 'translate' | 'rotate' | 'scale'
+  kind: 'axis' | 'plane' | 'uniform'
+  /** 大写轴名：X / Y / Z，平面为 XY / YZ / XZ，整体缩放为 UNIFORM。 */
+  axis: string
+  clientX: number
+  clientY: number
+}
+
+interface GizmoEvent {
+  type: string
+  value?: boolean
+  hover?: GizmoHoverInfo | null
+}
+type GizmoListener = (event: GizmoEvent) => void
 
 const GIZMO_TARGET_PX = 120
 const identitySnap = (value: number) => value
+
+function hoverInfoOf(handle: GumballHandleUserData, event: PointerEvent): GizmoHoverInfo {
+  return {
+    mode: modeOf(handle),
+    kind: handle.handleType === GumballHandleType.PLANE
+      ? 'plane'
+      : handle.axis === 'uniform' ? 'uniform' : 'axis',
+    axis: handleHitName(handle),
+    clientX: event.clientX,
+    clientY: event.clientY,
+  }
+}
 
 function handleHitName(handle: GumballHandleUserData): string {
   if (handle.handleType === GumballHandleType.SCALE && handle.axis === 'uniform') return 'UNIFORM'
@@ -74,9 +103,10 @@ export class UnifiedGizmo {
   private ghostPivotOffset = new THREE.Vector3()
   private onDuplicate: ((items: GizmoDuplicateItem[]) => void) | null = null
   private readonly ndc = new THREE.Vector2()
+  private hoverActive = false
 
   constructor(
-    private readonly camera: THREE.PerspectiveCamera,
+    public camera: THREE.PerspectiveCamera | THREE.OrthographicCamera,
     private readonly canvas: HTMLCanvasElement,
   ) {
     const build = buildGumball()
@@ -90,6 +120,7 @@ export class UnifiedGizmo {
     this.canvas.addEventListener('pointermove', this.onPointerMove)
     this.canvas.addEventListener('pointerup', this.onPointerUp)
     this.canvas.addEventListener('pointercancel', this.onPointerUp)
+    this.canvas.addEventListener('pointerleave', this.onPointerLeave)
   }
 
   addEventListener(type: string, fn: GizmoListener): void {
@@ -127,6 +158,11 @@ export class UnifiedGizmo {
 
   ids(): string[] { return [...this.targets.keys()] }
   object(id: string): THREE.Object3D | undefined { return this.targets.get(id) }
+  /** 多选操作轴的世界坐标，与视口 gizmo 枢轴同一点。 */
+  pivotWorld(): { x: number; y: number; z: number } | null {
+    if (!this.targets.size) return null
+    return { x: this.pivot.position.x, y: this.pivot.position.y, z: this.pivot.position.z }
+  }
 
   setScaleVisible(visible: boolean): void {
     setGumballScaleVisible(this.build, visible)
@@ -144,6 +180,7 @@ export class UnifiedGizmo {
       this.visual.visible = false
       this.axis = null
       setHandleHovered(null, this.pickers)
+      this.emitHover(null)
       return
     }
     this.resetVirtualPivot()
@@ -151,6 +188,7 @@ export class UnifiedGizmo {
     if (!sameSelection) {
       this.axis = null
       setHandleHovered(null, this.pickers)
+      this.emitHover(null)
     }
     this.update()
   }
@@ -178,7 +216,9 @@ export class UnifiedGizmo {
     }
     this.visual.position.copy(this.pivot.position)
     const distance = this.camera.position.distanceTo(this.pivot.position)
-    const worldPerViewport = 2 * distance * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2))
+    const worldPerViewport = this.camera instanceof THREE.OrthographicCamera
+      ? (this.camera.top - this.camera.bottom) / this.camera.zoom
+      : 2 * distance * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2))
     this.visual.scale.setScalar(worldPerViewport * GIZMO_TARGET_PX / Math.max(1, this.canvas.clientHeight))
     this.originRing.quaternion.copy(this.camera.quaternion)
     this.visual.updateMatrixWorld(true)
@@ -194,6 +234,7 @@ export class UnifiedGizmo {
     this.canvas.removeEventListener('pointermove', this.onPointerMove)
     this.canvas.removeEventListener('pointerup', this.onPointerUp)
     this.canvas.removeEventListener('pointercancel', this.onPointerUp)
+    this.canvas.removeEventListener('pointerleave', this.onPointerLeave)
     this.clearGhosts()
     this.alt.dispose()
     this.listeners.clear()
@@ -209,6 +250,19 @@ export class UnifiedGizmo {
   private emit(type: string, value?: boolean): void {
     const event = { type, value }
     this.listeners.get(type)?.forEach((fn) => fn(event))
+  }
+
+  /** 悬停手柄变化时通知 UI（Tooltip）；不在手柄上时只在「离开」那一次发 null。 */
+  private emitHover(info: GizmoHoverInfo | null): void {
+    if (!info && !this.hoverActive) return
+    this.hoverActive = Boolean(info)
+    const event: GizmoEvent = { type: 'hover', hover: info }
+    this.listeners.get('hover')?.forEach((fn) => fn(event))
+  }
+
+  private readonly onPointerLeave = (): void => {
+    if (this.dragging) return
+    this.emitHover(null)
   }
 
   private toNdc(event: PointerEvent): THREE.Vector2 | null {
@@ -261,6 +315,7 @@ export class UnifiedGizmo {
       if (!this.dragging) {
         this.axis = null
         this.canvas.style.cursor = ''
+        this.emitHover(null)
       }
       return
     }
@@ -315,6 +370,7 @@ export class UnifiedGizmo {
     if (!this.visual.visible || !this.targets.size) {
       this.axis = null
       this.canvas.style.cursor = ''
+      this.emitHover(null)
       return
     }
     const handle = this.pick(ndc.x, ndc.y)
@@ -322,6 +378,7 @@ export class UnifiedGizmo {
     this.axis = handle?.key ?? null
     if (handle) this.dragMode = modeOf(handle)
     this.canvas.style.cursor = handle ? 'pointer' : ''
+    this.emitHover(handle ? hoverInfoOf(handle, event) : null)
     this.emit('change')
   }
 
@@ -371,6 +428,8 @@ export class UnifiedGizmo {
     this.dragging = true
     this.axis = handle.key
     setHandleHovered(handle, this.pickers)
+    setGumballDragFocus(handle, this.pickers)
+    this.emitHover(null)
     this.emit('dragging-changed', true)
     this.emit('change')
     try {
@@ -408,6 +467,7 @@ export class UnifiedGizmo {
     this.duplicating = false
     this.duplicateConsumed = wasDuplicate
     setHandleHovered(null, this.pickers)
+    setGumballDragFocus(null, this.pickers)
     this.axis = null
     this.canvas.style.cursor = ''
     try {

@@ -23,13 +23,13 @@
 
 .t3d-leftrail-rail {
   position: relative;
-  width: 72px;
+  width: max-content;
   flex: none;
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 6px;
-  padding: 10px 6px 12px;
+  gap: 8px;
+  padding: 12px;
   overflow: visible;
   /* Board dock：栏底 #131313，描边 #232323。 */
   background: #131313;
@@ -56,7 +56,7 @@
 
 .t3d-leftrail-expand {
   position: absolute;
-  top: 50%;
+  top: 22px;
   right: -11px;
   z-index: 5;
   transform: translateY(-50%);
@@ -64,7 +64,7 @@
 
 .t3d-leftrail-collapse {
   position: absolute;
-  top: 50%;
+  top: 22px;
   right: -11px;
   z-index: 5;
   transform: translateY(-50%);
@@ -139,6 +139,25 @@
   flex: none;
 }
 
+.t3d-camera-aspect-row {
+  margin-top: 8px;
+}
+
+/* 画幅与看向两行的下拉框不随标签长短伸缩，保持同宽右对齐；标签过长时再收窄。 */
+.t3d-camera-aspect-row > .t3d-inspector-v,
+.t3d-cam-aim > .t3d-cam-aim-target > .t3d-dropdown {
+  flex: 1 1 0;
+  max-width: var(--t3d-camera-select-width, 174px);
+  min-width: 0;
+  margin-left: auto;
+}
+
+/* 标签占位同 .t3d-inspector-k，窄面板下两行下拉收缩量才一致。 */
+.t3d-cam-aim > .t3d-cam-aim-target > span {
+  flex: 0 0 86px;
+  white-space: normal;
+}
+
 .t3d-camera-subject-hint {
   color: var(--t3d-text-dim, var(--t3d-text-muted));
   line-height: 1.4;
@@ -150,13 +169,14 @@
   align-items: center;
   justify-content: center;
   width: 100%;
-  gap: 3px;
+  gap: 4px;
   min-height: 48px;
   padding: 7px 4px 6px;
   border: none;
   border-radius: 10px;
   background: transparent;
   color: #a0a0a0;
+  font-family: var(--t3d-font-sans);
   cursor: pointer;
 }
 
@@ -165,8 +185,7 @@
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow: hidden;
-  width: 100%;
-  max-width: 100%;
+  width: 56px;
   text-align: center;
   font-size: 11px;
   line-height: 1.15;
@@ -174,13 +193,14 @@
   white-space: normal;
   overflow-wrap: normal;
   word-break: normal;
-  hyphens: auto;
+  hyphens: manual;
+  text-wrap: balance;
 }
 
 .t3d-leftrail-rail-btn svg {
   flex: none;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
 }
 
 .t3d-leftrail-rail-btn:hover {
@@ -197,12 +217,12 @@
 .t3d-leftrail-rail-item {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
 }
 
 .t3d-leftrail-rail-divider {
   height: 1px;
-  margin: 2px 4px 4px;
+  margin: 0 4px;
   background: var(--t3d-border);
 }
 
@@ -212,8 +232,8 @@
   flex: none;
   display: flex;
   flex-direction: column;
-  /* 248 内容宽 + 12 padding × 2 + 1px 右边框 */
-  width: 273px;
+  /* 216 内容宽 + 12 padding × 2 + 1px 右边框 */
+  width: 241px;
   min-width: 180px;
   max-width: 360px;
   height: 100%;
@@ -236,6 +256,21 @@
   pointer-events: none;
 }
 
+.t3d-leftrail-content.is-flashing {
+  animation: t3d-leftrail-flash 400ms ease-out;
+}
+
+@keyframes t3d-leftrail-flash {
+  0%,
+  30% {
+    background-color: color-mix(in srgb, var(--t3d-accent) 16%, transparent);
+    box-shadow: inset 0 0 0 1px var(--t3d-accent);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: inset 0 0 0 1px transparent;
+  }
+}
 .t3d-leftrail:has(.t3d-leftrail-resize.is-dragging) .t3d-leftrail-content {
   transition: none;
 }
@@ -292,10 +327,19 @@
   margin: 0;
   padding: 0 10px;
   height: 32px;
-  border: none;
+  border: 1px solid rgba(255, 255, 255, 0.03);
   border-radius: 8px;
   background: var(--t3d-bg-input);
   color: var(--t3d-text-muted);
+}
+
+.t3d-leftrail-search-icon {
+  flex: none;
+  color: var(--t3d-text);
+}
+
+.t3d-leftrail-object > .t3d-leftrail-search {
+  margin-bottom: 12px;
 }
 
 .t3d-leftrail-toolbar .t3d-leftrail-search {
@@ -356,6 +400,11 @@
   padding: 0;
   font-size: 11px;
   color: var(--t3d-text-muted);
+}
+
+.t3d-leftrail-hint {
+  margin-bottom: 12px;
+  line-height: 16px;
 }
 
 .t3d-leftrail-message {
@@ -427,11 +476,20 @@
   animation-delay: 160ms;
 }
 
+.t3d-leftrail-pane-title {
+  flex: none;
+  margin: 0 0 12px;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
 .t3d-leftrail-section-title {
   margin: 4px 0 12px;
-  color: #ffffff;
-  font-size: 16px;
-  font-weight: 600;
+  color: var(--t3d-text-muted);
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .t3d-leftrail-grid {
@@ -491,7 +549,7 @@
   overflow: hidden;
   flex: none;
   border-radius: 6px;
-  background: #111111;
+  background: #0e0e0e;
   color: var(--t3d-text-muted);
 }
 
@@ -605,6 +663,11 @@
   height: 28px;
 }
 
+.t3d-leftrail-card-camera-icon {
+  width: 28px;
+  height: 28px;
+}
+
 .t3d-leftrail-primitive {
   width: 68%;
   height: 68%;
@@ -681,18 +744,18 @@
   color: var(--t3d-text-muted);
 }
 
-.t3d-leftrail-card-cameramotion .t3d-leftrail-card-preview {
-  aspect-ratio: 16 / 10;
-}
-
-.t3d-leftrail-card-cameramotion .t3d-leftrail-card-name {
-  white-space: normal;
+.t3d-leftrail-tree-row + .t3d-leftrail-tree-row {
+  margin-top: 2px;
 }
 
 .t3d-leftrail-tree-row {
   display: flex;
   align-items: center;
-  min-height: 28px;
+  box-sizing: border-box;
+  height: 32px;
+  padding-top: 2px;
+  padding-right: 8px;
+  padding-bottom: 2px;
   border-radius: 6px;
 }
 
@@ -701,19 +764,36 @@
   background: var(--t3d-bg-hover);
 }
 
+.t3d-leftrail-tree-row:hover .t3d-leftrail-tree-main,
+.t3d-leftrail-tree-row-active .t3d-leftrail-tree-main {
+  color: var(--t3d-text);
+}
+
 .t3d-leftrail-tree-main {
   flex: 1;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
-  padding: 4px 4px 4px 0;
+  height: 28px;
+  padding: 0 4px 0 0;
   border: none;
   background: none;
-  color: var(--t3d-text);
+  color: var(--t3d-text-muted);
   font-size: 12px;
   text-align: left;
   cursor: pointer;
+}
+
+.t3d-leftrail-tree-main > svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+}
+
+.t3d-leftrail-tree-main > svg.t3d-leftrail-tree-scene-icon {
+  width: 16px;
+  height: 16px;
 }
 
 .t3d-leftrail-tree-main span {
@@ -727,8 +807,20 @@
 }
 
 .t3d-leftrail-tree-flags {
-  display: flex;
+  display: none;
   flex: none;
+}
+
+.t3d-leftrail-tree-row:hover .t3d-leftrail-tree-flags,
+.t3d-leftrail-tree-row:focus-within .t3d-leftrail-tree-flags,
+.t3d-leftrail-tree-row-active .t3d-leftrail-tree-flags {
+  display: flex;
+}
+
+.t3d-leftrail-tree-flags button svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
 }
 
 .t3d-leftrail-tree-flags button {
@@ -739,12 +831,17 @@
   height: 22px;
   padding: 0;
   border: none;
+  border-radius: 4px;
   background: none;
   color: var(--t3d-text-muted);
   cursor: pointer;
 }
 
-.t3d-leftrail-tree-flags button:hover,
+.t3d-leftrail-tree-flags button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.16);
+  color: var(--t3d-text);
+}
+
 .t3d-leftrail-tree-flags button.is-on {
   color: var(--t3d-text);
 }

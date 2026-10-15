@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import type { PathDrawStyle } from '../../stores/types'
 import { poseEditEligibleId, cameraPilotEligibleId } from '../../stores/nodeSelection'
 import { useDirector } from '../../bridge/DirectorContext'
 import { useViewportAttach } from '../../bridge/useViewportAttach'
@@ -8,29 +7,26 @@ import { IconCrosshair, IconExitFullscreen, IconFullscreen, IconPath, IconPointe
 import { cx } from '../common/cx'
 import { Tooltip } from '../common/Tooltip'
 import { useT } from '../../locale'
-import { isAutoAspectRatio, resolveAspectRatio } from '../../contract/aspectRatio'
-import { useViewportAspect } from '../hooks/useViewportAspect'
-import { AxisCompass, ResetViewIcon, type AxisCompassRotation } from './AxisCompass'
+import { AxisCompass, type AxisCompassRotation } from './AxisCompass'
 import { FloatingAnchor } from './FloatingAnchor'
 import { LookAtPreview } from './LookAtPreview'
 import { NavigationHint } from './NavigationHint'
+import { PilotCameraIcon } from './PilotCameraIcon'
+import { QuickAddMenu } from './QuickAddMenu'
 import { TimelinePlayHint } from './TimelinePlayHint'
+import { useFramedAspect } from './hooks/useFramedAspect'
+import { useGizmoHoverTip } from './hooks/useGizmoHoverTip'
 import { useViewportInteractions } from './hooks/useViewportInteractions'
-
-const DRAW_STYLES: [PathDrawStyle, string, string][] = [
-  ['click', 'viewport.clickAdd', '↖'],
-  ['draw', 'viewport.dragDraw', '✎'],
-]
+import { GizmoHoverTip } from './GizmoHoverTip'
 
 export function Viewport() {
   const t = useT()
   const { useStore } = useDirector()
   const ref = useRef<HTMLCanvasElement>(null)
-  const toolbarRef = useRef<HTMLDivElement>(null)
   const { stage } = useViewportAttach(ref)
   const followMode = useStore((s) => s.followMode)
+  const activeCameraId = useStore((s) => s.activeCameraId)
   const pathDrawMode = useStore((s) => s.pathDrawMode)
-  const pathDrawStyle = useStore((s) => s.pathDrawStyle)
   const gizmoMode = useStore((s) => s.gizmoMode)
   const selection = useStore((s) => s.selection)
   const poseEditingId = useStore((s) => s.poseEditingId)
@@ -39,21 +35,24 @@ export function Viewport() {
   const pathEditPointIndex = useStore((s) => s.pathEditPointIndex)
   const lookAtPickingId = useStore((s) => s.lookAtPickingId)
   const pathApplyPickingId = useStore((s) => s.pathApplyPickingId)
+  const placeOnSupportPickingId = useStore((s) => s.placeOnSupportPickingId)
   const doc = useStore((s) => s.doc)
   const viewportFullscreen = useStore((s) => s.viewportFullscreen)
   const timelineVisible = useStore((s) => s.timelineVisible)
   const timelinePlayHint = useStore((s) => s.timelinePlayHintVisible)
   const film = useStore((s) => s.workspaceMode === 'film')
-  const [drawMenuOpen, setDrawMenuOpen] = useState(false)
+  const [viewDirection, setViewDirection] = useState(() => stage.readEditorViewDirection?.() ?? null)
   const [compassRotation, setCompassRotation] = useState<AxisCompassRotation>(
     () => stage.readEditorCameraRotation(),
   )
 
   useEffect(() => {
+    setViewDirection(stage.readEditorViewDirection?.() ?? null)
     setCompassRotation(stage.readEditorCameraRotation())
   }, [stage])
 
   useEngineEvent('camera:change', (next) => {
+    setViewDirection(stage.readEditorViewDirection?.() ?? null)
     setCompassRotation((prev) => (
       Math.abs(prev.x - next.x) < 0.05
       && Math.abs(prev.y - next.y) < 0.05
@@ -69,7 +68,7 @@ export function Viewport() {
       return
     }
     const nodeId = selection?.kind === 'node' ? selection.nodeId : null
-    const suspended = followMode || pathDrawMode || Boolean(poseEditingId) || Boolean(lookAtPickingId) || Boolean(pathApplyPickingId) || Boolean(cameraPilotId)
+    const suspended = followMode || pathDrawMode || Boolean(poseEditingId) || Boolean(lookAtPickingId) || Boolean(pathApplyPickingId) || Boolean(placeOnSupportPickingId) || Boolean(cameraPilotId)
     const raf = requestAnimationFrame(() => {
       stage.setPoseEditingId(poseEditingId)
       stage.setPathEditing?.(pathEditingId, pathEditPointIndex)
@@ -81,30 +80,21 @@ export function Viewport() {
       )
     })
     return () => cancelAnimationFrame(raf)
-  }, [stage, selection, gizmoMode, followMode, pathDrawMode, poseEditingId, cameraPilotId, pathEditingId, pathEditPointIndex, lookAtPickingId, pathApplyPickingId, film])
-
-  useEffect(() => {
-    if (!drawMenuOpen) return
-    const onDown = (e: PointerEvent) => {
-      if (!toolbarRef.current?.contains(e.target as Node)) setDrawMenuOpen(false)
-    }
-    document.addEventListener('pointerdown', onDown, true)
-    return () => document.removeEventListener('pointerdown', onDown, true)
-  }, [drawMenuOpen])
+  }, [stage, selection, gizmoMode, followMode, pathDrawMode, poseEditingId, cameraPilotId, pathEditingId, pathEditPointIndex, lookAtPickingId, pathApplyPickingId, placeOnSupportPickingId, film])
 
   const { selectionBox, lookAtHoverId } = useViewportInteractions(ref)
+  const { tip: gizmoTip, tipRef: gizmoTipRef } = useGizmoHoverTip(stage)
 
   const poseEligible = poseEditEligibleId(doc?.content.nodes ?? [], selection)
   const pilotEligible = cameraPilotEligibleId(doc?.content.nodes ?? [], selection)
-  const pilotAspectAuto = Boolean(cameraPilotId && isAutoAspectRatio(doc?.content.aspectRatio))
-  const viewportAspect = useViewportAspect(pilotAspectAuto)
-  const pilotAspect = resolveAspectRatio(doc?.content.aspectRatio, viewportAspect)
-  const idleModes = !lookAtPickingId && !pathApplyPickingId && !followMode && !pathDrawMode && !pathEditingId && !film && !cameraPilotId
-  const aimPickingId = lookAtPickingId || pathApplyPickingId
+  const framedAspect = useFramedAspect()
+  const idleModes = !lookAtPickingId && !pathApplyPickingId && !placeOnSupportPickingId && !followMode && !pathDrawMode && !pathEditingId && !film && !cameraPilotId
+  const aimPickingId = lookAtPickingId || pathApplyPickingId || placeOnSupportPickingId
 
   return (
     <div className={cx('t3d-viewport', aimPickingId && 't3d-viewport-look-at-picking')} data-tutorial-anchor="viewport">
       <canvas ref={ref} className="t3d-viewport-canvas" />
+      <GizmoHoverTip tip={gizmoTip} tipRef={gizmoTipRef} />
       <NavigationHint hidden={film || followMode || pathDrawMode || Boolean(poseEditingId) || Boolean(aimPickingId) || Boolean(cameraPilotId)} />
       {aimPickingId ? (
         <LookAtPreview stage={stage} cameraId={aimPickingId} hoverId={lookAtHoverId} />
@@ -112,7 +102,7 @@ export function Viewport() {
       {lookAtPickingId ? (
         <div className="t3d-look-at-prompt" role="status" onPointerDown={(e) => e.stopPropagation()}>
           <span>{t('viewport.lookAtPick')}</span>
-          <button type="button" onClick={() => useStore.getState().cancelLookAtPick()}>
+          <button type="button" className="t3d-hint-action" onClick={() => useStore.getState().cancelLookAtPick()}>
             {t('viewport.lookAtCancel')}
           </button>
         </div>
@@ -120,7 +110,15 @@ export function Viewport() {
       {pathApplyPickingId ? (
         <div className="t3d-look-at-prompt" role="status" onPointerDown={(e) => e.stopPropagation()}>
           <span>{t('viewport.pathApplyPick')}</span>
-          <button type="button" onClick={() => useStore.getState().cancelPathApplyPick()}>
+          <button type="button" className="t3d-hint-action" onClick={() => useStore.getState().cancelPathApplyPick()}>
+            {t('viewport.lookAtCancel')}
+          </button>
+        </div>
+      ) : null}
+      {placeOnSupportPickingId ? (
+        <div className="t3d-look-at-prompt" role="status" onPointerDown={(e) => e.stopPropagation()}>
+          <span>{t('viewport.placeOnSupportPick')}</span>
+          <button type="button" className="t3d-hint-action" onClick={() => useStore.getState().cancelPlaceOnSupportPick()}>
             {t('viewport.lookAtCancel')}
           </button>
         </div>
@@ -129,15 +127,15 @@ export function Viewport() {
         <div className="t3d-pose-editor-hint" role="status" onPointerDown={(e) => e.stopPropagation()}>
           <span>{t('viewport.pilotHint')}</span>
           <button type="button" className="t3d-hint-action" onClick={() => useStore.getState().setCameraPilot(null)}>
-            {t('viewport.pilotExit')}
+            {t('viewport.pilotExit')}（Esc）
           </button>
         </div>
       ) : null}
-      {cameraPilotId ? (
+      {framedAspect ? (
         <div className="t3d-pilot-mask" aria-hidden="true">
           <div
             className="t3d-pilot-frame"
-            style={{ ['--t3d-pilot-aspect' as string]: String(pilotAspect) }}
+            style={{ ['--t3d-pilot-aspect' as string]: String(framedAspect) }}
           />
         </div>
       ) : null}
@@ -145,7 +143,7 @@ export function Viewport() {
         <div className="t3d-pose-editor-hint" role="status" onPointerDown={(e) => e.stopPropagation()}>
           <span>{t('viewport.poseDragHint')}</span>
           <button type="button" className="t3d-hint-action" onClick={() => useStore.getState().setPoseEditingId(null)}>
-            {t('viewport.finishPose')}
+            {t('viewport.finishPose')}（Esc）
           </button>
         </div>
       ) : null}
@@ -153,7 +151,7 @@ export function Viewport() {
         <div className="t3d-pose-editor-hint" role="status" onPointerDown={(e) => e.stopPropagation()}>
           <span>{t('viewport.pathEditHint')}</span>
           <button type="button" className="t3d-hint-action" onClick={() => useStore.getState().setPathEditingId(null)}>
-            {t('viewport.finish')}
+            {t('viewport.finish')}（Esc）
           </button>
         </div>
       ) : null}
@@ -174,9 +172,13 @@ export function Viewport() {
           <button
             type="button"
             className="t3d-viewport-float-btn"
-            onClick={() => useStore.getState().setCameraPilot(pilotEligible)}
+            onClick={() => {
+              const state = useStore.getState()
+              if (state.activeCameraId !== pilotEligible) state.setActiveCamera(pilotEligible)
+              state.setFollowMode(true)
+            }}
           >
-            {t('viewport.pilotCamera')}
+            {t('viewport.enterCamera')}
           </button>
         </FloatingAnchor>
       ) : null}
@@ -218,24 +220,40 @@ export function Viewport() {
           aria-hidden
         />
       ) : null}
-      {!film && !cameraPilotId ? (
+      {!film && !cameraPilotId && !followMode ? (
         <div className="t3d-viewport-compass-stack">
-          <AxisCompass rotation={compassRotation} />
+          <AxisCompass activeDirection={viewDirection} rotation={compassRotation} onSelect={stage.setEditorView ? (direction) => {
+            if (followMode) useStore.getState().setFollowMode(false)
+            stage.setEditorView?.(direction)
+          } : undefined} />
           <button
             type="button"
             className="t3d-reset-view-btn"
             onClick={() => useStore.getState().resetEditorView()}
           >
-            <ResetViewIcon />
             <span>{t('viewport.resetView')}</span>
           </button>
         </div>
       ) : null}
-      {followMode && !film && (
-        <button type="button" className="t3d-follow-exit t3d-hint-action" onClick={() => useStore.getState().setFollowMode(false)}>
-          {t('viewport.exitCameraView')}
-        </button>
-      )}
+      {followMode && !film && !cameraPilotId ? (
+        <div className="t3d-pose-editor-hint" role="status" onPointerDown={(e) => e.stopPropagation()}>
+          <span>{t('viewport.hintFollow')}</span>
+          <button
+            type="button"
+            className="t3d-hint-action t3d-hint-action-icon"
+            disabled={!activeCameraId}
+            onClick={() => {
+              if (activeCameraId) useStore.getState().setCameraPilot(activeCameraId)
+            }}
+          >
+            <PilotCameraIcon className="t3d-hint-action-glyph" />
+            {t('viewport.pilotCamera')}
+          </button>
+          <button type="button" className="t3d-hint-action" onClick={() => useStore.getState().setFollowMode(false)}>
+            {t('viewport.exitCameraView')}（Esc）
+          </button>
+        </div>
+      ) : null}
       {pathDrawMode && !film && (
         <div className="t3d-path-draw-bar">
           <span className="t3d-path-draw-glyph">⌥</span>
@@ -246,7 +264,7 @@ export function Viewport() {
             title={t('viewport.savePath')}
             onClick={() => useStore.getState().finishPathDraw()}
           >
-            {t('save.action')}
+            {t('save.action')}（Esc）
           </button>
           <button
             type="button"
@@ -258,9 +276,10 @@ export function Viewport() {
           </button>
         </div>
       )}
-      {!followMode && !film ? (
+      {!film ? (
         <div className="t3d-viewport-bottom">
-          <div className="t3d-gizmo-toolbar" ref={toolbarRef} data-tutorial-anchor="tools">
+          <div className="t3d-gizmo-toolbar" data-tutorial-anchor="tools">
+            <QuickAddMenu />
             <div className="t3d-gizmo-group">
               <Tooltip label={t('viewport.select')} side="top">
                 <button type="button"
@@ -269,7 +288,6 @@ export function Viewport() {
                     const state = useStore.getState()
                     state.setPathDrawMode(false)
                     state.setGizmoMode('translate')
-                    setDrawMenuOpen(false)
                   }}>
                   <IconPointer />
                 </button>
@@ -279,7 +297,11 @@ export function Viewport() {
               <button
                 type="button"
                 className={`t3d-gizmo-btn t3d-path-draw-btn${pathDrawMode ? ' t3d-gizmo-btn-active' : ''}`}
-                onClick={() => setDrawMenuOpen((o) => !o)}
+                onClick={() => {
+                  const st = useStore.getState()
+                  if (st.pathDrawStyle !== 'click') st.setPathDrawStyle('click')
+                  st.setPathDrawMode(true)
+                }}
               >
                 <IconPath />
               </button>
@@ -305,28 +327,6 @@ export function Viewport() {
                 </button>
               </Tooltip>
             </div>
-            {drawMenuOpen && (
-              <div className="t3d-dropdown-menu is-anchored t3d-draw-style-menu" data-placement="top" role="listbox">
-                {DRAW_STYLES.map(([s, labelKey, glyph]) => (
-                  <button
-                    type="button"
-                    key={s}
-                    role="option"
-                    aria-selected={pathDrawStyle === s}
-                    className={cx('t3d-dropdown-option', pathDrawStyle === s && 'is-active')}
-                    onClick={() => {
-                      const st = useStore.getState()
-                      st.setPathDrawStyle(s)
-                      st.setPathDrawMode(true)
-                      setDrawMenuOpen(false)
-                    }}
-                  >
-                    <span className="t3d-draw-style-glyph">{glyph}</span>
-                    <span>{t(labelKey)}</span>
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
         </div>
       ) : null}
@@ -345,15 +345,11 @@ export function Viewport() {
           </button>
         </Tooltip>
       </div>
-      {film ? null : (
+      {film || followMode ? null : (
       <div className="t3d-viewport-hint">
         {pathDrawMode
-          ? pathDrawStyle === 'click'
-            ? t('viewport.hintClick')
-            : t('viewport.hintDraw')
-          : followMode
-            ? t('viewport.hintFollow')
-            : t('viewport.hintOrbit')}
+          ? t('viewport.hintClick')
+          : t('viewport.hintOrbit')}
       </div>
       )}
     </div>

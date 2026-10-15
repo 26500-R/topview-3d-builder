@@ -35,6 +35,27 @@ test('机位图标用真实坐标：远近高低左右和库数据一致', () =>
   assert.ok(requirePreset('dutch').rotation.z !== 0)
 })
 
+test('机位旋转值规范：存储值与由 position→lookAt 推出的朝向都只能是 5 的整数倍', () => {
+  const isStep5 = (value: number, tolerance: number) => {
+    const nearest = Math.round(value / 5) * 5
+    return Math.abs(value - nearest) <= tolerance
+  }
+  for (const preset of CAMERA_PRESETS) {
+    const { x, y, z } = preset.rotation
+    for (const [axis, value] of [['x', x], ['y', y], ['z', z]] as const) {
+      assert.ok(isStep5(value, 0), `${preset.id} rotation.${axis}=${value} 不是 5 的整数倍`)
+    }
+    const dx = preset.lookAt.x - preset.position.x
+    const dy = preset.lookAt.y - preset.position.y
+    const dz = preset.lookAt.z - preset.position.z
+    const yaw = (Math.atan2(-dx, -dz) * 180) / Math.PI
+    const pitch = (Math.atan2(dy, Math.hypot(dx, dz)) * 180) / Math.PI
+    // 位置取三位小数，推出的角度允许 0.05° 以内的舍入误差（检查器只显示一位小数）。
+    assert.ok(isStep5(yaw, 0.05), `${preset.id} 推出的 yaw=${yaw.toFixed(3)} 不是 5 的整数倍`)
+    assert.ok(isStep5(pitch, 0.05), `${preset.id} 推出的 pitch=${pitch.toFixed(3)} 不是 5 的整数倍`)
+  }
+})
+
 test('运镜图标用同一套烘焙器：位移和摇镜方向与 recipe 一致', () => {
   const dolly = previewCameraMotionPoses(requireMotion('dolly_in'))
   const tilt = previewCameraMotionPoses(requireMotion('tilt_up'))

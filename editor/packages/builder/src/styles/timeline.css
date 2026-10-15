@@ -85,7 +85,7 @@
   flex-wrap: wrap;
   gap: 8px;
   min-height: 42px;
-  padding: 6px 12px;
+  padding: 16px 12px 6px;
   overflow: hidden;
   border-bottom: 1px solid var(--t3d-border-subtle);
 }
@@ -127,13 +127,41 @@
   appearance: textfield;
 }
 
-.t3d-timeline-field-range input[type='number'],
-.t3d-timeline-field-range .t3d-scrub-input {
-  width: 4.4em;
+.t3d-timeline-field-range .t3d-timeline-field-value {
+  display: inline-flex;
+  align-items: stretch;
+  height: 26px;
+  border-radius: 8px;
+  background: var(--t3d-bg-input);
+  color: var(--t3d-text);
+  overflow: hidden;
 }
 
-.t3d-timeline-field-unit {
-  color: var(--t3d-text-secondary);
+.t3d-timeline-field-range .t3d-timeline-field-value:focus-within {
+  outline: 1px solid var(--t3d-text-secondary);
+}
+
+.t3d-timeline-field-range .t3d-timeline-field-value .t3d-scrub-input {
+  width: 40px;
+  height: auto;
+  padding: 0 4px 0 6px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.t3d-timeline-field-range .t3d-timeline-field-value .t3d-scrub-input:focus-visible {
+  outline: none;
+}
+
+.t3d-timeline-field-range .t3d-timeline-field-unit {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px 0 0;
+  color: var(--t3d-text-muted);
+  font-size: 11px;
 }
 
 .t3d-timeline-zoom {
@@ -410,9 +438,11 @@
   color: var(--t3d-text-dim);
 }
 
+/* 与检查器标题（.t3d-inspector-title）同一套字体样式 */
 .t3d-timeline-node-name {
-  font-weight: 600;
-  color: var(--t3d-text-node);
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--t3d-text-title);
   overflow: hidden;
   text-overflow: ellipsis;
 }

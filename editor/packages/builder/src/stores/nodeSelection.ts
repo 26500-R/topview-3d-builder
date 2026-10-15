@@ -53,6 +53,15 @@ export function isPathApplyTarget(node: Pick<DraftNode, 'type'> | undefined): bo
   )
 }
 
+/** 视口点选承托：可见、未锁定的角色 / 道具 / 基础形状，且不是被放置的对象自身。 */
+export function isPlaceOnSupportPickTarget(
+  node: (Pick<DraftNode, 'id' | 'type' | 'visible'> & { locked?: boolean }) | undefined,
+  moverId: string,
+): boolean {
+  if (!node || node.id === moverId || node.visible === false || node.locked) return false
+  return node.type === 'character' || node.type === 'prop' || node.type === 'primitive'
+}
+
 /** 视口点选绑定：可见、未锁定，且不是轨迹自身。 */
 export function isPathApplyPickTarget(
   node: (Pick<DraftNode, 'id' | 'type' | 'visible'> & { locked?: boolean }) | undefined,

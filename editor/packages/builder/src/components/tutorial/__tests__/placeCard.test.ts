@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'vitest'
 import { TUTORIAL_STEPS } from '../constants'
 import {
+  buildTutorialUrl,
   isUsableRect,
   placeCard,
   stepIndexAfter,
@@ -61,4 +62,11 @@ test('stepIndexAfter stops at the ends', () => {
   assert.equal(stepIndexAfter(0, 5, -1), null)
   assert.equal(stepIndexAfter(4, 5, 1), null)
   assert.equal(stepIndexAfter(2, 5, 1), 3)
+})
+
+test('buildTutorialUrl puts lang before the hash anchor', () => {
+  assert.equal(
+    buildTutorialUrl('zh-CN'),
+    'https://www.topview.ai/academy/spatial-control?lang=zh-CN#3-1-3d-builder-build-scenes-stage-action-and-move-the-camera',
+  )
 })

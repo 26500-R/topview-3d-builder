@@ -37,8 +37,10 @@ export interface DraftNode {
   }
   camera?: {
     projection: string
-    fov: number // 垂直视角，度
+    fov: number // 垂直视角，度。界面按 24mm 竖边显示为焦距
     fovAxis: string
+    /** 这台机位的画幅。缺省时沿用文档 `content.aspectRatio`。 */
+    aspectRatio?: string
     near: number
     far: number
     isPrimary: boolean

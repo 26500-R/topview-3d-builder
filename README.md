@@ -261,6 +261,7 @@ If Topview 3D Builder helps your work, **give the repo a ⭐** and share what yo
 
 - Code, schemas and docs: [Apache License 2.0](https://github.com/topviewai/topview-3d-builder/blob/main/LICENSE)
 - Built-in assets (characters, poses and more): [CC BY 4.0](https://github.com/topviewai/topview-3d-builder/blob/main/builtin-assets/LICENSE). Credit them as "Scene3D built-in assets © Topview, CC BY 4.0".
+- Editor UI fonts (Instrument Sans, Darker Grotesque): [SIL Open Font License 1.1](https://github.com/topviewai/topview-3d-builder/tree/main/editor/packages/builder/src/styles/fonts).
 
 ## Acknowledgements
 

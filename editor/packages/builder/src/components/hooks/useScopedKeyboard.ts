@@ -53,7 +53,7 @@ export function useScopedKeyboard(rootRef: RefObject<HTMLDivElement | null>): vo
       if (e.key === 'Escape' && s.pathDrawMode) {
         e.preventDefault()
         e.stopPropagation()
-        s.setPathDrawMode(false)
+        s.finishPathDraw()
         return
       }
       if (isTypingTarget(e.target)) return
@@ -78,6 +78,7 @@ export function useScopedKeyboard(rootRef: RefObject<HTMLDivElement | null>): vo
           || s.poseEditingId
           || s.lookAtPickingId
           || s.pathApplyPickingId
+          || s.placeOnSupportPickingId
           || s.followMode
           || s.exporting
           || s.writeLocked
@@ -100,6 +101,10 @@ export function useScopedKeyboard(rootRef: RefObject<HTMLDivElement | null>): vo
         e.preventDefault()
         e.stopPropagation()
         s.setCameraPilot(null)
+      } else if (e.key === 'Escape' && s.followMode) {
+        e.preventDefault()
+        e.stopPropagation()
+        s.setFollowMode(false)
       } else if (e.key === 'Escape' && s.lookAtPickingId) {
         e.preventDefault()
         e.stopPropagation()
@@ -108,6 +113,10 @@ export function useScopedKeyboard(rootRef: RefObject<HTMLDivElement | null>): vo
         e.preventDefault()
         e.stopPropagation()
         s.cancelPathApplyPick()
+      } else if (e.key === 'Escape' && s.placeOnSupportPickingId) {
+        e.preventDefault()
+        e.stopPropagation()
+        s.cancelPlaceOnSupportPick()
       } else if (e.key === 'Escape' && s.poseEditingId) {
         e.preventDefault()
         e.stopPropagation()

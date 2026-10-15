@@ -1,7 +1,7 @@
 import { test } from 'vitest'
 import assert from 'node:assert/strict'
 import { makeEmptyDraft } from '../../contract/emptyDraft'
-import type { DirectorDocument, DraftNode } from '../../contract/types'
+import type { DirectorDocument, DraftNode, PathMotionClip } from '../../contract/types'
 import { EditorStore } from '../../stores/EditorStore'
 import { StudioSession } from '../../sync/StudioSession'
 import { DirectorDoc } from '../../document/DirectorDoc'
@@ -173,4 +173,81 @@ test('placeNodeOnSupport 把杯子放到桌子顶面中心', () => {
 test('placeNodeOnSupport 拒绝放到自己上方', () => {
   const { session } = sessionWithProps()
   assert.equal(session.placeNodeOnSupport('cup', 'cup'), 'same-node')
+})
+
+test('点选承托物后把对象放到其上方，点自身或锁定对象则继续点选', () => {
+  const { doc, session } = sessionWithProps()
+  const locked = propNode('locked', 2, 0, 0)
+  locked.locked = true
+  doc.content.nodes.push(locked)
+  session.beginPlaceOnSupportPick('cup')
+  assert.equal(session.placeOnSupportPickingId, 'cup')
+  assert.equal(session.pathApplyPickingId, null)
+  session.select({ kind: 'node', nodeId: 'cup', nodeIds: ['cup'] })
+  assert.equal(session.placeOnSupportPickingId, 'cup')
+  session.select({ kind: 'node', nodeId: 'locked', nodeIds: ['locked'] })
+  assert.equal(session.placeOnSupportPickingId, 'cup')
+  session.cancelPlaceOnSupportPick()
+  assert.equal(session.placeOnSupportPickingId, null)
+  session.beginPlaceOnSupportPick('cup')
+  session.select({ kind: 'node', nodeId: 'table', nodeIds: ['table'] })
+  assert.equal(session.placeOnSupportPickingId, null)
+  assert.deepEqual(doc.content.nodes.find((n) => n.id === 'cup')?.transform.position, {
+    x: 0,
+    y: 1.5,
+    z: 0,
+  })
+})
+
+function bindCup(doc: DirectorDocument) {
+  const clip: PathMotionClip = {
+    id: 'path_clip',
+    target: { type: 'node', nodeId: 'cup' },
+    pathNodeId: 'path_1',
+    pathName: '轨迹',
+    frameStart: 0,
+    frameEnd: 48,
+    pathStartPercent: 0,
+    pathEndPercent: 100,
+    direction: 'forward',
+    facing: 'path-tangent',
+    playback: { version: 1, speed: 1, loop: false, loopMode: 'ping-pong', baseDurationFrames: 48 },
+    pathLength: 2,
+    status: 'active',
+    source: 'semantic',
+    locked: false,
+  }
+  doc.content.timeline.animation.pathMotionClips.push(clip)
+}
+
+test('placeNodesOnGround 多选一起落地，已在地面的不动，一步撤销', () => {
+  const { doc, session } = sessionWithProps()
+  const cup = () => doc.content.nodes.find((n) => n.id === 'cup')?.transform.position
+  const table = () => doc.content.nodes.find((n) => n.id === 'table')?.transform.position
+  assert.equal(session.placeNodesOnGround(['cup', 'table']), null)
+  assert.deepEqual(cup(), { x: 4, y: 0.5, z: 1 })
+  assert.deepEqual(table(), { x: 0, y: 0, z: 0 })
+  session.undo()
+  assert.deepEqual(cup(), { x: 4, y: 3, z: 1 })
+})
+
+test('placeNodesOnGround 跳过锁定对象，全锁定时报错', () => {
+  const { doc, session } = sessionWithProps()
+  const cupNode = doc.content.nodes.find((n) => n.id === 'cup')!
+  cupNode.locked = true
+  assert.equal(session.placeNodesOnGround(['cup']), 'node-locked')
+  assert.equal(session.placeNodesOnGround(['cup', 'table']), null)
+  assert.deepEqual(cupNode.transform.position, { x: 4, y: 3, z: 1 })
+})
+
+test('轨迹绑定的对象放到地面或对象上时提示解除绑定', () => {
+  const grounded = sessionWithProps()
+  bindCup(grounded.doc)
+  assert.equal(grounded.session.placeNodeOnGround('cup'), null)
+  assert.equal(grounded.session.pathBindMoveNodeId, 'cup')
+
+  const seated = sessionWithProps()
+  bindCup(seated.doc)
+  assert.equal(seated.session.placeNodeOnSupport('cup', 'table'), null)
+  assert.equal(seated.session.pathBindMoveNodeId, 'cup')
 })

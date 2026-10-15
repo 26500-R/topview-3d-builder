@@ -60,15 +60,22 @@ export class DocumentSync {
 
     this.disposers.push(
       reaction(
-        () => editor.playing,
-        (playing) => {
-          if (session.editor.workspaceMode !== 'scene') {
-            engine.pause()
+        () => [editor.playing, editor.workspaceMode, editor.pendingKeyframes.length, editor.exporting, editor.timelineVisible] as const,
+        ([playing, mode, pending, exporting, timelineVisible]) => {
+          // 场景工作台才能走引擎时钟。时间轴面板打开后停掉空闲循环，
+          // 但面板上的播放仍要驱动同一条时钟，不能把 playing 和「面板关闭」绑在一起。
+          const canDrive = mode === 'scene' && pending === 0 && !exporting
+          const ambient = canDrive && !timelineVisible
+          if (playing && canDrive) {
+            engine.stopAmbient()
+            engine.play()
             return
           }
-          if (playing) engine.play()
-          else engine.pause()
+          engine.pause()
+          if (ambient) engine.startAmbient()
+          else engine.stopAmbient()
         },
+        { fireImmediately: true },
       ),
     )
 

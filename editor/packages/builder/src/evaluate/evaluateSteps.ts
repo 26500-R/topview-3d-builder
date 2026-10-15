@@ -17,7 +17,12 @@ import {
   type SceneContract,
   type TransformValue,
 } from './FrameSnapshot'
-import { sampleKeyframesInto, type TrackProp, type UserKeys } from './curves/KeyframeTrack'
+import {
+  sampleEulerKeyframesInto,
+  sampleKeyframesInto,
+  type TrackProp,
+  type UserKeys,
+} from './curves/KeyframeTrack'
 import { evaluatePathMotionInto, type PathEval } from './path/samplePath'
 
 const RAD2DEG = 180 / Math.PI
@@ -33,7 +38,7 @@ const POSE_KEYS = [
 ] as const
 
 const _sample = [0, 0, 0]
-const _path: PathEval = { position: { x: 0, y: 0, z: 0 }, yaw: 0 }
+const _path: PathEval = { position: { x: 0, y: 0, z: 0 }, yaw: 0, forward: { x: 0, y: 0, z: 0 } }
 const _cam: CamPose = { position: [0, 0, 0], lookAt: [0, 0, 0], fov: 50, clipId: null }
 const _nodeById = new Map<string, DraftNode>()
 
@@ -259,6 +264,22 @@ function writeCameraSlot(xf: TransformValue, pose: CamPose): void {
  * 乱漂」。移动改朝向只有一种情况：看点被显式驱动（lookAtTarget / 人物绑定 / 运镜
  * 曲线 / 看点关键帧），那些步骤在本函数之后覆盖 lookAt。
  */
+/** 相机沿路径切线看：注视点放在当前位置前方，距离保持绑定前的视线长度。 */
+function aimCameraAlongPath(xf: TransformValue, path: PathEval): void {
+  const dist = lookDistance(xf.position, xf.lookAt)
+  const len = Math.hypot(path.forward.x, path.forward.y, path.forward.z)
+  if (!xf.lookAt) xf.lookAt = { x: 0, y: 0, z: 0 }
+  if (len < 1e-8) {
+    moveCameraKeepingAim(xf, path.position)
+    return
+  }
+  copyVec3(xf.position, path.position)
+  xf.lookAt.x = path.position.x + (path.forward.x / len) * dist
+  xf.lookAt.y = path.position.y + (path.forward.y / len) * dist
+  xf.lookAt.z = path.position.z + (path.forward.z / len) * dist
+  xf.useEuler = false
+}
+
 function moveCameraKeepingAim(xf: TransformValue, next: { x: number; y: number; z: number }): void {
   const look = xf.lookAt
   if (look) {
@@ -311,7 +332,8 @@ function overlayCameraUserKeys(
     xf.lookAt.y = _sample[1]
     xf.lookAt.z = _sample[2]
   }
-  if (uk.rotation && sampleKeyframesInto(uk.rotation, frame, _sample)) {
+  // 相机旋转键走「连续化」采样：只改单轴时，另两轴在过渡中保持不变（见 alignEulerDeg）。
+  if (uk.rotation && sampleEulerKeyframesInto(uk.rotation, frame, _sample)) {
     xf.rotation.x = _sample[0]
     xf.rotation.y = _sample[1]
     xf.rotation.z = _sample[2]
@@ -388,8 +410,8 @@ export function evaluateCameras(scene: SceneContract, frame: number, out: FrameS
       if (pathClip) {
         const pathNode = _nodeById.get(pathClip.pathNodeId)
         if (pathNode && evaluatePathMotionInto(pathNode, pathClip, frame, _path)) {
-          // 走位只驱动位置，朝向保持不变（切线 yaw 是人物的语义，相机不用）。
-          moveCameraKeepingAim(xf, _path.position)
+          if (pathClip.facing === 'path-tangent') aimCameraAlongPath(xf, _path)
+          else moveCameraKeepingAim(xf, _path.position)
         }
       }
     }

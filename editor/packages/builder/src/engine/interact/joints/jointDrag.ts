@@ -1,5 +1,5 @@
 import { Plane, Quaternion, Raycaster, Vector3 } from 'three'
-import type { PerspectiveCamera, Vector2 } from 'three'
+import type { Camera, Vector2 } from 'three'
 import type { PoseCanonicalKey } from '../../rig/applyPose'
 import {
   LIMB_ROOTS,
@@ -37,7 +37,7 @@ export function beginJointDrag(
   spec: JointHandleSpec,
   canonical: Partial<Record<PoseCanonicalKey, import('three').Object3D>>,
   restPose: Map<string, Quaternion>,
-  camera: PerspectiveCamera,
+  camera: Camera,
   ndc: Vector2,
   forward: Vector3,
 ): JointDrag | null {
@@ -58,7 +58,7 @@ export function updateJointDrag(
   drag: JointDrag,
   canonical: Partial<Record<PoseCanonicalKey, import('three').Object3D>>,
   restPose: Map<string, Quaternion>,
-  camera: PerspectiveCamera,
+  camera: Camera,
   ndc: Vector2,
 ): JointPose | null {
   const bones = resolveHandleBones(drag.spec, canonical, restPose)

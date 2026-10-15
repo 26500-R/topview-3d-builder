@@ -3,7 +3,6 @@ import { useDirector, useOverlayClose } from '../../bridge/DirectorContext'
 import { useT } from '../../locale'
 import type { SaveState } from '../../stores/types'
 import { cx } from '../common/cx'
-import { DirectorStageIcon } from '../common/DirectorStageIcon'
 import { Tooltip } from '../common/Tooltip'
 import { StudioCloseButton } from '../overlay/StudioCloseButton'
 import { TutorialButton } from '../tutorial'
@@ -38,7 +37,7 @@ export function Topbar() {
   return (
     <header className="t3d-topbar">
       <div className="t3d-topbar-left">
-        <DirectorStageIcon className="t3d-topbar-logo" />
+        {onClose ? <StudioCloseButton onClose={onClose} /> : null}
         <span className="t3d-topbar-title">{t('topbar.title')}</span>
         {docName ? (
           <>
@@ -85,7 +84,6 @@ export function Topbar() {
         {!ready && loadStatus ? (
           <span className="t3d-topbar-status">{localizeMessage(t, loadStatus)}</span>
         ) : null}
-        {onClose ? <StudioCloseButton onClose={onClose} /> : null}
       </div>
     </header>
   )

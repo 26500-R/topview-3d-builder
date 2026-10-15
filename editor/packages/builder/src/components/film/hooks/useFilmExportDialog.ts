@@ -2,6 +2,7 @@ import { localizeMessage } from '../../../locale/messages'
 import { useEffect, useRef, useState, type MutableRefObject } from 'react'
 import { useDirector } from '../../../bridge/DirectorContext'
 import { useEngine, type DirectorEngine } from '../../../bridge/useEngine'
+import { cameraAspectSetting } from '../../../contract/cameraAspect'
 import {
   ASPECT_RATIO_MENU_ORDER,
   DEFAULT_ASPECT_RATIO,
@@ -20,18 +21,9 @@ import {
 import { useT } from '../../../locale'
 import { useViewportAspect } from '../../hooks/useViewportAspect'
 import type { TopviewCanvasSent } from '../../dialogs/hooks/useTopviewCanvasSend'
+import { DEFAULT_EXPORT_HEIGHT, exportResolutionOptions, parseExportHeight, type ExportHeight } from '../../dialogs/utils'
 
 const PREVIEW_HEIGHT = 360
-const DEFAULT_EXPORT_HEIGHT = 1080
-const EXPORT_RESOLUTIONS = [
-  { height: 720, label: '720p' },
-  { height: 1080, label: '1080p' },
-  { height: 1440, label: '1440p' },
-] as const
-
-function isExportHeight(value: number): value is (typeof EXPORT_RESOLUTIONS)[number]['height'] {
-  return EXPORT_RESOLUTIONS.some((item) => item.height === value)
-}
 
 interface FilmExportRunInput {
   t: ReturnType<typeof useT>
@@ -107,8 +99,12 @@ export function useFilmExportDialog(sequenceId: string, onClose: () => void) {
   const duration = sequence ? getEditSequenceDurationFrames(sequence.clips) : 0
   const issues = doc ? playbackIssues(doc, sequenceId) : []
   const fps = doc?.content.timeline.fps ?? 1
-  const [aspectRatio, setAspectRatio] = useState(doc?.content.aspectRatio ?? DEFAULT_ASPECT_RATIO)
-  const [exportHeight, setExportHeight] = useState(DEFAULT_EXPORT_HEIGHT)
+  const previewHead = sequence ? resolveEditSequenceFrame(sequence.clips, 0) : null
+  const previewCamera = doc?.content.nodes.find((node) => node.id === previewHead?.cameraNodeId)
+  const [aspectRatio, setAspectRatio] = useState(() =>
+    cameraAspectSetting(previewCamera?.camera, doc?.content.aspectRatio ?? DEFAULT_ASPECT_RATIO),
+  )
+  const [exportHeight, setExportHeight] = useState<ExportHeight>(DEFAULT_EXPORT_HEIGHT)
   const [fileName, setFileName] = useState(sequence?.name?.trim() ?? '')
   const [error, setError] = useState('')
   const [progress, setProgress] = useState<{
@@ -121,7 +117,6 @@ export function useFilmExportDialog(sequenceId: string, onClose: () => void) {
   const numericAspect = resolveAspectRatio(aspectRatio, viewportAspect)
   const width = widthFromAspectHeight(exportHeight, numericAspect)
   const previewWidth = widthFromAspectHeight(PREVIEW_HEIGHT, numericAspect)
-  const previewHead = sequence ? resolveEditSequenceFrame(sequence.clips, 0) : null
   const { previewUrl, previewLoading } = useFilmExportPreview({
     enabled: Boolean(doc) && Boolean(previewHead) && issues.length === 0 && !exporting,
     cameraId: previewHead?.cameraNodeId ?? '',
@@ -168,13 +163,10 @@ export function useFilmExportDialog(sequenceId: string, onClose: () => void) {
     aspectRatio,
     setAspectRatio,
     aspectOptions: ASPECT_RATIO_MENU_ORDER,
-    resolutionOptions: EXPORT_RESOLUTIONS.map((item) => ({
-      value: String(item.height),
-      label: `${item.label} · ${widthFromAspectHeight(item.height, numericAspect)} × ${item.height}`,
-    })),
+    resolutionOptions: exportResolutionOptions(numericAspect),
     setExportHeight: (value: string) => {
-      const next = Number(value)
-      if (isExportHeight(next)) setExportHeight(next)
+      const next = parseExportHeight(value)
+      if (next) setExportHeight(next)
     },
     previewAspect: numericAspect,
     previewUrl,

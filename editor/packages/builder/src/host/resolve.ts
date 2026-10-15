@@ -15,7 +15,7 @@ export function resolveAssetUrl(adapter: HostAdapter<unknown>, key: string): Res
   if (adapter.resolveAssetUrl) return adapter.resolveAssetUrl(trimmed)
 
   throw new Error(
-    `素材 key 需要宿主签名，请实现 adapter.resolveAssetUrl：${normalizeAssetKey(trimmed)}`,
+    `Asset key requires a host signature. Implement adapter.resolveAssetUrl: ${normalizeAssetKey(trimmed)}`,
   )
 }
 
@@ -23,6 +23,6 @@ export function resolveMediaUrl(adapter: HostAdapter<unknown>, ref: MediaRef): R
   if (adapter.resolveMediaUrl) return adapter.resolveMediaUrl(ref)
 
   const key = resolveMediaKey(ref)
-  if (!key) throw new Error(`无法解析媒体引用：kind=${ref.kind}`)
+  if (!key) throw new Error(`Cannot resolve media reference: kind=${ref.kind}`)
   return resolveAssetUrl(adapter, key)
 }

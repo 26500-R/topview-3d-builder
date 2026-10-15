@@ -167,7 +167,7 @@ export class MotionPlayer {
         .loadAsync(url)
         .then((group) => {
           const clip = group.animations[0]
-          if (!clip) throw new Error(`FBX 中没有动画: ${url}`)
+          if (!clip) throw new Error(`FBX has no animation: ${url}`)
           const entry: RawMotion = { clip, group, bind: captureBind(group) }
           this.raw.set(assetId, entry)
           rememberLibraryMotion(url, entry)

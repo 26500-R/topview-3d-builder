@@ -299,6 +299,24 @@ export function timelineScale(pxPerFrame: number, frameCount: number, availableT
   return Math.max(pxPerFrame, availableTrackW / frameCount)
 }
 
+/** 时间范围、运镜、轨迹、动作里最靠后的一帧。适配时用它，避免片段超出时间范围后被裁掉。 */
+export function timelineContentFrameEnd(
+  frameEnd: number,
+  clips: readonly { frameEnd: number }[],
+): number {
+  let end = frameEnd
+  for (const clip of clips) {
+    if (Number.isFinite(clip.frameEnd) && clip.frameEnd > end) end = clip.frameEnd
+  }
+  return end
+}
+
+/** 把整段帧正好铺满可见轨道。宽度或帧数不够时返回 null。 */
+export function timelineFitPx(frameCount: number, availableTrackW: number): number | null {
+  if (frameCount <= 0 || availableTrackW <= 0) return null
+  return availableTrackW / frameCount
+}
+
 export function timelineTickStep(pxPerFrame: number): number {
   if (pxPerFrame >= 4) return 5
   if (pxPerFrame >= 2) return 10

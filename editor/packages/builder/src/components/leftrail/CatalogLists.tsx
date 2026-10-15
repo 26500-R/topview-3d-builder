@@ -5,7 +5,7 @@ import type { TranslateFn } from '../../locale'
 import { assetCategoryLabel, assetNameLabel } from '../../locale/assetLabels'
 import { cx } from '../common/cx'
 import { AssetCard } from './AssetCard'
-import { CameraMotionThumb, CameraPresetThumb } from './CameraLibraryThumb'
+import { CameraMotionThumb } from './CameraLibraryThumb'
 import {
   ALL_CHIP,
   CAMERA_MOTION_CATEGORY_LABEL,
@@ -96,6 +96,7 @@ export function CharacterList({
         previewKey={catalogPreviewSrc(c.coverUrl, c.cover)}
         busy={busyKey === `chr-${c.id}`}
         disabled={busyKey !== null}
+        hoverPreview={false}
         adapter={adapter}
         onClick={() => onPick(c)}
         onHoverStart={hover.onEnter}
@@ -302,9 +303,7 @@ export function CameraList({
         <AssetCard
           key={p.id}
           name={tOr(t, `cameraPreset.${p.id}`, p.name)}
-          icon="camera"
-          diagram={<CameraPresetThumb id={p.id} />}
-          hoverDiagram={{ kind: 'cameraPreset', id: p.id }}
+          icon={p.id === 'current' ? 'cameraFilled' : 'camera'}
           adapter={adapter}
           onClick={() => onPick(p.id)}
           onHoverStart={hover.onEnter}
@@ -332,7 +331,9 @@ export function CameraMotionList({
   return (
     <CatalogGroups key={filter}>
       {categories.map((cat) => {
-        const items = CAMERA_MOTIONS.filter((m) => m.categoryId === cat)
+        const items = CAMERA_MOTIONS.filter(
+          (m) => m.categoryId === cat && m.targetPolicy !== 'required-look-at' && m.targetPolicy !== 'required-focus-target',
+        )
         if (items.length === 0) return null
         return (
           <CatalogSection
@@ -347,7 +348,6 @@ export function CameraMotionList({
                 icon="camera"
                 diagram={<CameraMotionThumb id={m.id} />}
                 hoverDiagram={{ kind: 'cameraMotion', id: m.id }}
-                variant="cameraMotion"
                 adapter={adapter}
                 onClick={() => onPick(m.id)}
                 onHoverStart={hover.onEnter}

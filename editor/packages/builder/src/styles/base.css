@@ -19,10 +19,21 @@
   min-height: 0;
   background: var(--t3d-bg);
   color: var(--t3d-text);
-  font: 13px/1.5 system-ui, -apple-system, "PingFang SC", sans-serif;
+  font: 13px/1.5 var(--t3d-font-sans);
   user-select: none;
   outline: none;
   color-scheme: dark;
+}
+
+.t3d-root button,
+.t3d-root input,
+.t3d-root select,
+.t3d-root textarea,
+.t3d-portal-root button,
+.t3d-portal-root input,
+.t3d-portal-root select,
+.t3d-portal-root textarea {
+  font-family: inherit;
 }
 
 .t3d-inspector-write-boundary {

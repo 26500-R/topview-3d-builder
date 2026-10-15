@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { skinnedTopYInParent } from './skinnedBounds'
 
 const FONT = '600 34px system-ui, sans-serif'
 const BOX_H = 72
@@ -132,6 +133,8 @@ export function labelMeta(obj: THREE.Object3D): LabelMeta | null {
  */
 export function topYInParent(object: THREE.Object3D, parent: THREE.Object3D): number {
   parent.updateMatrixWorld(true)
+  const skinnedTop = skinnedTopYInParent(object, parent)
+  if (skinnedTop !== null) return skinnedTop
   // precise=true 走当前蒙皮顶点；几何体绑定盒在旋转骨架下会回到脚边。
   const box = new THREE.Box3().setFromObject(object, true)
   if (box.isEmpty()) return 0

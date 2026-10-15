@@ -65,6 +65,6 @@ export async function renderTargetToPngBlob(
   if (!ctx) throw new Error('2d canvas unavailable')
   blitRenderTargetToCanvas(renderer, target, ctx, width, height)
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
-  if (!blob) throw new Error('canvas.toBlob 返回 null')
+  if (!blob) throw new Error('Image capture failed: no image data was generated')
   return blob
 }

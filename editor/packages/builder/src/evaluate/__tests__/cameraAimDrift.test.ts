@@ -128,6 +128,23 @@ function assertAimHeld(scene: SceneContract, frames: number[], moved = true): vo
   }
 }
 
+test('走位朝向路径：视线跟着切线，不再保持绑定前朝向', () => {
+  const doc = makeEmptyDraft('cam-aim-path-tangent', 30, 120)
+  doc.content.nodes.push(camNode(), pathNode())
+  doc.content.timeline.animation.pathMotionClips.push({ ...pathClip(), facing: 'path-tangent' })
+  const scene = sceneFromDocument(doc, { fcurves: null, chainCameraMotion: false })
+  const forward = [6, 1.6, -6]
+  const len = Math.hypot(...forward)
+  for (const frame of [0, 30, 60]) {
+    const xf = camAt(scene, frame)
+    const aim = aimOf(xf)
+    const aimLen = Math.hypot(...aim)
+    for (let i = 0; i < 3; i++) {
+      assert.ok(Math.abs(aim[i] / aimLen - forward[i] / len) < 1e-6, `frame ${frame} 轴 ${i} 没沿切线看`)
+    }
+  }
+})
+
 test('走位驱动机位：位置变、朝向不变', () => {
   const doc = makeEmptyDraft('cam-aim-path', 30, 120)
   doc.content.nodes.push(camNode(), pathNode())

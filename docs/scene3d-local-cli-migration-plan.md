@@ -8,6 +8,12 @@ The working branch is `codex/scene3d-local-cli` in the new repository
 - editor `topview-3d-builder`: `0f5df076bc6fdc1de1f59d2f117a8fcc736864a9`
 - agent `marketing-studio`: `116c0c9c6bec169fed275df68acb2426ef2e4d0a`
 
+`editor/` was later synced to `topview-3d-builder`
+`571d2393a34f946c4f7bbec65e516c76a26c9b48` (builder 1.0.12) by a three-way merge on
+`0f5df07`. The sync kept this repository's own changes (pose-library naming, the
+`writeLocked` write lock, local export list, Studio locales) and left out the Agent /
+Marketing Studio features and the user-asset upload changes.
+
 The source checkouts are references only. All new implementation belongs in
 this repository.
 
@@ -302,7 +308,7 @@ Built-in assets (`builtin-assets/`, 2.1 MB, no LFS):
 Characters, poses, and covers are licensed CC-BY-4.0 (`builtin-assets/LICENSE`, scope and attribution
 "Scene3D built-in assets © Topview, CC BY 4.0" in `builtin-assets/NOTICE`); each entry carries
 `license: CC-BY-4.0`, that attribution, and source `Topview (self-made)`. The code stays Apache-2.0 and
-the wheel declares `Apache-2.0 AND CC-BY-4.0` with `LICENSE`, `LICENSE-ASSETS`, and `NOTICE`. `topview-3d-cli pose apply
+the wheel declares `Apache-2.0 AND CC-BY-4.0 AND OFL-1.1` with `LICENSE`, `LICENSE-ASSETS`, and `NOTICE`; the OFL texts of the editor fonts ship next to the builder in the runtime. `topview-3d-cli pose apply
 <dir> <nodeId> <poseId>` compiles a library pose into the character's joint controls through the
 renderer's `apply-library-pose`.
 

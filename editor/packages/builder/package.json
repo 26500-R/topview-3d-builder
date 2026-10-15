@@ -1,6 +1,6 @@
 {
   "name": "@topview/3d-builder",
-  "version": "1.0.1-beta.1",
+  "version": "1.0.12",
   "description": "Embeddable 3D director studio",
   "sideEffects": [
     "./dist/styles.css",

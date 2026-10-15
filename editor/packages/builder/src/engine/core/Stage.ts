@@ -1,4 +1,6 @@
+import type { EditorViewDirection } from '../interact/camera/axisView'
 import * as THREE from 'three'
+import { cameraNumericAspect } from '../../contract/cameraAspect'
 import { resolveAspectRatio } from '../../contract/aspectRatio'
 import type { DirectorDocument, DraftNode } from '../../contract/types'
 import { FCurveSet } from '../../evaluate/curves/FCurveSet'
@@ -47,7 +49,7 @@ import {
   type ContainerScreenRect,
 } from '../interact/selectionBox'
 import type { ViewportNavPickHandlers } from '../interact/ViewportNavigation'
-import type { GizmoDuplicateItem } from '../interact/UnifiedGizmo'
+import type { GizmoDuplicateItem, GizmoHoverInfo } from '../interact/UnifiedGizmo'
 import { unionWorldBounds } from '../interact/frameSelection'
 import { beginJointDrag, updateJointDrag, type JointDrag } from '../interact/joints/jointDrag'
 import { JointHandleLayer } from '../interact/joints/JointHandleLayer'
@@ -108,6 +110,10 @@ function ual1PoseName(mixamorigRaw: string): string | undefined {
 
 export class Stage implements DirectorEngine, PathViewHost {
   readonly scene = new THREE.Scene()
+  get viewCamera(): THREE.PerspectiveCamera | THREE.OrthographicCamera { return this.viewport.viewCamera }
+  readEditorViewDirection(): EditorViewDirection | null { return this.viewport.viewDirection }
+  readFramedAspect(): number | null { return this.viewport.framedAspect }
+
   readonly editorCamera: THREE.PerspectiveCamera
   readonly motionPlayer = new MotionPlayer()
   readonly poseBank = new PoseLibraryBank()
@@ -142,7 +148,14 @@ export class Stage implements DirectorEngine, PathViewHost {
   private evalChainCameraMotion = false
   private readonly events = new EngineEvents()
   private readonly clock = new PlaybackClock()
+  /** 机位预览自己的循环。不推进时间轴，也不改建模视口里的机位。 */
+  private ambient = false
+  private ambientFrame = 0
+  private ambientHold: ReturnType<typeof setTimeout> | undefined
   private readonly renderLoop = new RenderLoop(() => this.forceRender())
+  // 机位预览循环只需重画预览，编辑相机导航只需重画主视口；同一 rAF 内合并。
+  private mainDirty = true
+  private previewDirty = true
   private readonly loader: AssetLoader
   private readonly viewport: DualViewport
   private readonly picker: Picker
@@ -174,10 +187,11 @@ export class Stage implements DirectorEngine, PathViewHost {
     this.editorCamera.position.set(...DEFAULT_EDITOR_CAMERA.position)
     this.editorCamera.lookAt(...DEFAULT_EDITOR_CAMERA.target)
     this.editorCamera.layers.enable(EDITOR_LAYER)
-    this.picker = new Picker(this.editorCamera)
+    this.picker = new Picker(() => this.viewCamera)
     this.joints.attach(this.scene)
     this.viewport = new DualViewport(this.editorCamera, {
       onInvalidate: () => this.invalidate(),
+      onInvalidateMain: () => this.invalidateMain(),
       onEditorCameraChange: () => {
         this.events.emit('camera:change', this.readEditorCameraRotation())
       },
@@ -187,10 +201,11 @@ export class Stage implements DirectorEngine, PathViewHost {
       },
       onContextRestored: () => {
         if (this.renderLoop.webGLContextLost) return
-        if (this.playing) this.clock.start(this.onClockTick)
+        if (this.playing || this.ambient) this.clock.start(this.onClockTick)
         this.invalidate()
       },
       getSceneMeshes: () => this.collectSceneMeshes(),
+      getSceneBounds: () => unionWorldBounds([...this.collectSceneMeshes(), ...this.collectPickableMap().values()]) ?? new THREE.Box3(),
       getOrbitPivot: () => this.orbitPivot(),
     })
   }
@@ -212,7 +227,8 @@ export class Stage implements DirectorEngine, PathViewHost {
     await loadDocument(this, this.loader, doc, onProgress, () => this.loadToken !== token)
     if (this.loadToken !== token) return
     this.ready = true
-    onProgress?.('就绪')
+    onProgress?.('Ready')
+    if ((this.ambient || this.playing) && !this.clock.running) this.clock.start(this.onClockTick)
     this.invalidate()
   }
 
@@ -221,6 +237,18 @@ export class Stage implements DirectorEngine, PathViewHost {
   }
 
   invalidate(): void {
+    this.mainDirty = true
+    this.previewDirty = true
+    this.renderLoop.invalidate()
+  }
+
+  private invalidateMain(): void {
+    this.mainDirty = true
+    this.renderLoop.invalidate()
+  }
+
+  private invalidatePreview(): void {
+    this.previewDirty = true
     this.renderLoop.invalidate()
   }
 
@@ -236,6 +264,10 @@ export class Stage implements DirectorEngine, PathViewHost {
     return resolveAspectRatio(this.doc?.content.aspectRatio, this.viewport.mainAspect())
   }
 
+  private aspectForCamera(camera: { aspectRatio?: string } | undefined, mainAspect = this.viewport.mainAspect()): number {
+    return cameraNumericAspect(camera, this.doc?.content.aspectRatio, mainAspect)
+  }
+
   setFcurves(fcurves: FCurveSet | null): void {
     if (fcurves === this.fcurves) return
     this.fcurves = fcurves
@@ -249,6 +281,10 @@ export class Stage implements DirectorEngine, PathViewHost {
   applyNodeVisibility(): void {
     applyNodeVisibility(this)
     this.invalidate()
+  }
+
+  setEditorView(direction: EditorViewDirection): void {
+    this.viewport.setEditorView(direction)
   }
 
   resetEditorView(): void {
@@ -271,7 +307,7 @@ export class Stage implements DirectorEngine, PathViewHost {
 
   poseJointHit(nodeId: string, ndcX: number, ndcY: number): { specId: string } | null {
     if (this.jointDrag || !this.characters.has(nodeId)) return null
-    const spec = this.joints.pick(this.editorCamera, ndcX, ndcY)
+    const spec = this.joints.pick(this.viewCamera, ndcX, ndcY)
     return spec ? { specId: spec.id } : null
   }
 
@@ -287,7 +323,7 @@ export class Stage implements DirectorEngine, PathViewHost {
       spec,
       canonical,
       ch.restPose,
-      this.editorCamera,
+      this.viewCamera,
       new THREE.Vector2(ndcX, ndcY),
       forward,
     )
@@ -304,7 +340,7 @@ export class Stage implements DirectorEngine, PathViewHost {
     const ch = drag ? this.characters.get(drag.objectId) : undefined
     if (!drag || !ch) return null
     const canonical = findCanonicalBones(ch.root, ch.rig === 'ual1' ? ual1PoseName : undefined)
-    const pose = updateJointDrag(drag, canonical, ch.restPose, this.editorCamera, new THREE.Vector2(ndcX, ndcY))
+    const pose = updateJointDrag(drag, canonical, ch.restPose, this.viewCamera, new THREE.Vector2(ndcX, ndcY))
     if (!pose) return null
     drag.latestPose = pose
     const written: Record<string, { x: number; y: number; z: number }> = {}
@@ -315,6 +351,7 @@ export class Stage implements DirectorEngine, PathViewHost {
       applyRelativeJoint(bone as THREE.Bone, rest, rot)
       written[name] = relativeToAbsoluteEuler(rest, rot)
     }
+    ch.poseCache = null
     ch.root.updateMatrixWorld(true)
     this.invalidate()
     return written
@@ -322,7 +359,7 @@ export class Stage implements DirectorEngine, PathViewHost {
 
   poseJointHover(ndcX: number, ndcY: number): void {
     if (this.jointDrag) return
-    const spec = this.joints.pick(this.editorCamera, ndcX, ndcY)
+    const spec = this.joints.pick(this.viewCamera, ndcX, ndcY)
     this.joints.hover(spec?.id ?? null)
   }
 
@@ -345,9 +382,13 @@ export class Stage implements DirectorEngine, PathViewHost {
   }
 
   projectNodeScreenRect(container: HTMLElement, nodeId: string): ContainerScreenRect | null {
+    const character = this.characters.get(nodeId)
+    if (character) {
+      return projectObjectToContainerRect(character.inner, this.viewCamera, container, true)
+    }
     const object = this.objectForFocus(nodeId)
     if (!object) return null
-    return projectObjectToContainerRect(object, this.editorCamera, container)
+    return projectObjectToContainerRect(object, this.viewCamera, container)
   }
 
   /** 角色名标签的屏幕矩形。标签未显示时返回 null，调用方再退回节点包围盒。 */
@@ -356,12 +397,12 @@ export class Stage implements DirectorEngine, PathViewHost {
     if (!root) return null
     const sprite = root.children.find((child) => child.userData.t3dKind === CHARACTER_LABEL_KIND)
     if (!sprite?.visible) return null
-    return projectObjectToContainerRect(sprite, this.editorCamera, container)
+    return projectObjectToContainerRect(sprite, this.viewCamera, container)
   }
 
   projectNodeWireframe(container: HTMLElement, nodeId: string) {
     const object = this.objectForFocus(nodeId)
-    return object ? projectObjectWireframe(object, this.editorCamera, container) : []
+    return object ? projectObjectWireframe(object, this.viewCamera, container) : []
   }
 
   projectWorldToContainer(
@@ -370,7 +411,7 @@ export class Stage implements DirectorEngine, PathViewHost {
     y: number,
     z: number,
   ): { x: number; y: number; visible: boolean } | null {
-    return projectWorldToContainer(this.editorCamera, container, new THREE.Vector3(x, y, z))
+    return projectWorldToContainer(this.viewCamera, container, new THREE.Vector3(x, y, z))
   }
 
   poseJointNodeId(): string | null {
@@ -394,7 +435,7 @@ export class Stage implements DirectorEngine, PathViewHost {
   }
 
   pickIdsInScreenRect(container: HTMLElement, rect: ContainerScreenRect): string[] {
-    return pickObjectIdsInContainerRect(this.editorCamera, container, this.collectPickableMap(), rect)
+    return pickObjectIdsInContainerRect(this.viewCamera, container, this.collectPickableMap(), rect)
   }
 
   pickPathPointIndicesInScreenRect(
@@ -454,7 +495,7 @@ export class Stage implements DirectorEngine, PathViewHost {
     this.joints.attach(this.scene)
     const ch = this.poseEditingId ? this.characters.get(this.poseEditingId) : undefined
     this.joints.sync(
-      this.editorCamera,
+      this.viewCamera,
       this.viewport.mainCanvas()?.clientHeight ?? 600,
       ch ? findCanonicalBones(ch.root, ch.rig === 'ual1' ? ual1PoseName : undefined) : null,
       ch?.restPose ?? null,
@@ -463,7 +504,7 @@ export class Stage implements DirectorEngine, PathViewHost {
   }
 
   readEditorCameraRotation(): { x: number; y: number; z: number } {
-    const euler = new THREE.Euler().setFromQuaternion(this.editorCamera.quaternion, 'YXZ')
+    const euler = new THREE.Euler().setFromQuaternion(this.viewCamera.quaternion, 'YXZ')
     return {
       x: THREE.MathUtils.radToDeg(euler.x),
       y: THREE.MathUtils.radToDeg(euler.y),
@@ -520,7 +561,7 @@ export class Stage implements DirectorEngine, PathViewHost {
   }
 
   pickPathHit(x: number, y: number): { id: string; dist: number } | null {
-    return pickPathHit(this, this.picker.raycaster, x, y, this.editorCamera)
+    return pickPathHit(this, this.picker.raycaster, x, y, this.viewCamera)
   }
 
   pickPathPointHit(
@@ -528,7 +569,7 @@ export class Stage implements DirectorEngine, PathViewHost {
     y: number,
     pathId?: string | null,
   ): { id: string; index: number; dist: number } | null {
-    return pickPathPointHit(this, this.picker.raycaster, x, y, this.editorCamera, pathId)
+    return pickPathPointHit(this, this.picker.raycaster, x, y, this.viewCamera, pathId)
   }
 
   setPathEditing(pathId: string | null, pointIndex: number | null): void {
@@ -722,9 +763,37 @@ export class Stage implements DirectorEngine, PathViewHost {
     if (this.ready) this.evaluateCurrent()
     this.emitFrame(performance.now(), true)
     this.invalidate()
+    if (this.ambient && !this.playing) this.holdAmbient()
+  }
+
+  /** 时间轴面板隐藏时空闲循环。只画右上角预览；进入机位视角后主画面才跟着播。面板打开后改由时间轴的播放和帧驱动。 */
+  startAmbient(): void {
+    if (this.playing || this.ambient) return
+    this.ambient = true
+    this.ambientFrame = this.doc?.content.timeline.frameStart ?? this.currentFrame
+    this.clock.start(this.onClockTick)
+  }
+
+  stopAmbient(): void {
+    const wasAmbient = this.ambient
+    this.ambient = false
+    if (this.ambientHold !== undefined) {
+      clearTimeout(this.ambientHold)
+      this.ambientHold = undefined
+    }
+    if (!this.playing) this.stopClock()
+    if (wasAmbient && this.ready && !this.playing) {
+      this.evaluateCurrent()
+      this.invalidate()
+    }
   }
 
   play(_direction: 'forward' | 'reverse' = 'forward'): void {
+    this.ambient = false
+    if (this.ambientHold !== undefined) {
+      clearTimeout(this.ambientHold)
+      this.ambientHold = undefined
+    }
     if (this.playing) return
     this.clearStagedTransforms()
     this.playing = true
@@ -733,13 +802,32 @@ export class Stage implements DirectorEngine, PathViewHost {
 
   pause(): void {
     this.playing = false
+    if (this.ambient) return
+    this.stopClock()
+  }
+
+  private holdAmbient(): void {
+    this.clock.stop()
+    if (this.ambientHold !== undefined) clearTimeout(this.ambientHold)
+    this.ambientHold = setTimeout(() => {
+      this.ambientHold = undefined
+      if (this.ambient && !this.playing) this.clock.start(this.onClockTick)
+    }, 400)
+  }
+
+  private stopClock(): void {
     this.clock.stop()
     this.emitFrame(performance.now(), true)
   }
 
   reset(): void {
     this.loadToken += 1
-    this.pause()
+    this.playing = false
+    this.clock.stop()
+    if (this.ambientHold !== undefined) {
+      clearTimeout(this.ambientHold)
+      this.ambientHold = undefined
+    }
     this.stagedTransforms.clear()
     this.ready = false
     this.fcurves = null
@@ -780,7 +868,13 @@ export class Stage implements DirectorEngine, PathViewHost {
     return raw.clip.duration
   }
 
-  evaluate(frame: number, userKeys: UserKeys, userKeysEnabled: boolean, chainCameraMotion = false): void {
+  evaluate(
+    frame: number,
+    userKeys: UserKeys,
+    userKeysEnabled: boolean,
+    chainCameraMotion = false,
+    silent = false,
+  ): void {
     const doc = this.doc
     if (!doc || !this.ready) return
     this.refreshNodeRefs(doc)
@@ -802,6 +896,8 @@ export class Stage implements DirectorEngine, PathViewHost {
       }
     }
     this.applySnapshot(this.frameOut)
+    // 机位预览循环先求环境帧、画完再求回当前帧，场景净变化为零，不必通知面板。
+    if (silent) return
     writeInspectorSnapshot(this)
     if (!this.playing) this.events.emit('node:snapshot', null)
   }
@@ -1041,6 +1137,10 @@ export class Stage implements DirectorEngine, PathViewHost {
     return this.viewport.gizmoAttachedNodeIds()
   }
 
+  gizmoPivot(): { x: number; y: number; z: number } | null {
+    return this.viewport.gizmoPivot()
+  }
+
   gizmoHandleHit(ndcX: number, ndcY: number): { name: string; dist: number } | null {
     return this.viewport.gizmoHandleHit(ndcX, ndcY, this.picker.raycaster)
   }
@@ -1059,6 +1159,15 @@ export class Stage implements DirectorEngine, PathViewHost {
     const handler = (e: { value?: unknown }) => fn(Boolean(e.value))
     gizmo.addEventListener('dragging-changed', handler)
     return () => gizmo.removeEventListener('dragging-changed', handler)
+  }
+
+  /** 悬停在操作轴手柄上时给 UI 用（Tooltip）；离开手柄时回调 null。 */
+  onGizmoHover(fn: (info: GizmoHoverInfo | null) => void): () => void {
+    const gizmo = this.viewport.unified
+    if (!gizmo) return () => undefined
+    const handler = (e: { hover?: GizmoHoverInfo | null }) => fn(e.hover ?? null)
+    gizmo.addEventListener('hover', handler)
+    return () => gizmo.removeEventListener('hover', handler)
   }
 
   onGizmoObjectChange(fn: () => void): () => void {
@@ -1150,6 +1259,7 @@ export class Stage implements DirectorEngine, PathViewHost {
   dispose(): void {
     this.renderLoop.disposed = true
     this.renderLoop.stop()
+    this.stopAmbient()
     this.pause()
     this.viewport.detachMain()
     this.viewport.detachPreview()
@@ -1166,8 +1276,8 @@ export class Stage implements DirectorEngine, PathViewHost {
     this.exportTarget = null
   }
 
-  private evaluateCurrent(): void {
-    this.evaluate(this.currentFrame, this.evalUserKeys, this.evalUserKeysEnabled, this.evalChainCameraMotion)
+  private evaluateCurrent(silent = false): void {
+    this.evaluate(this.currentFrame, this.evalUserKeys, this.evalUserKeysEnabled, this.evalChainCameraMotion, silent)
   }
 
   private readonly onClockTick = (now: number): void => {
@@ -1178,14 +1288,26 @@ export class Stage implements DirectorEngine, PathViewHost {
     const adv = Math.floor(this.clock.acc)
     this.clock.acc -= adv
     const tl = doc.content.timeline
-    let f = this.currentFrame + adv
     const span = tl.frameEnd - tl.frameStart + 1
-    if (f > tl.frameEnd) f = tl.frameStart + ((f - tl.frameStart) % span)
-    this.currentFrame = f
+    const wrap = (frame: number) => {
+      let f = frame + adv
+      if (f > tl.frameEnd) f = tl.frameStart + ((f - tl.frameStart) % span)
+      return f
+    }
     this.stats.clockFrames += 1
-    this.evaluateCurrent()
-    this.emitFrame(now)
-    this.invalidate()
+    if (this.playing) {
+      this.currentFrame = wrap(this.currentFrame)
+      this.evaluateCurrent()
+      this.emitFrame(now)
+      this.invalidate()
+      return
+    }
+    if (!this.ambient || this.programPreviewActive) return
+    this.ambientFrame = wrap(this.ambientFrame)
+    if (this.viewport.followMode) {
+      this.evaluate(this.ambientFrame, this.evalUserKeys, this.evalUserKeysEnabled, this.evalChainCameraMotion)
+      this.invalidate()
+    } else this.invalidatePreview()
   }
 
   private emitFrame(now: number, forceThrottle = false): void {
@@ -1196,10 +1318,46 @@ export class Stage implements DirectorEngine, PathViewHost {
     this.events.emit('frame:throttled', this.currentFrame)
   }
 
+  /** 选中节点对应的场景对象，描边按它们的网格逐个画。 */
+  private selectionOutlineRoots(selectedIds: ReadonlySet<string>): THREE.Object3D[] {
+    const roots: THREE.Object3D[] = []
+    for (const id of selectedIds) {
+      const root = this.characters.get(id)?.root
+        ?? this.props.get(id)
+        ?? this.primitives.get(id)
+        ?? this.groups.get(id)
+        ?? this.cameras.get(id)?.gizmo.group
+      if (root) roots.push(root)
+    }
+    return roots
+  }
+
   private forceRender(): void {
     if (!this.ready) return
+    const mainDirty = this.mainDirty
+    const previewDirty = this.previewDirty
+    this.mainDirty = false
+    this.previewDirty = false
     this.stats.renderFrames += 1
+    const isolatePreview = this.ambient && !this.playing && !this.viewport.followMode && !this.programPreviewActive
     const hideOverlays = this.programPreviewActive || this.viewport.followMode || this.viewport.cameraPilot
+    const viewId = this.programCameraId ?? this.activeCameraId
+    const mainAspect = this.viewport.mainAspect()
+    const viewAspect = this.aspectForCamera(viewId ? this.cameras.get(viewId)?.node.camera : undefined, mainAspect)
+    this.syncCameraAspects(mainAspect)
+    if (isolatePreview) {
+      if (previewDirty) {
+        this.viewport.previewAspect = viewAspect
+        this.evaluate(this.ambientFrame, this.evalUserKeys, this.evalUserKeysEnabled, this.evalChainCameraMotion, true)
+        this.viewport.render(this.scene, this.cameras, this.activeCameraId, true, undefined, 'preview')
+        this.evaluateCurrent(true)
+      }
+      if (!mainDirty) return
+    } else if (!mainDirty) {
+      this.viewport.previewAspect = viewAspect
+      this.viewport.render(this.scene, this.cameras, this.activeCameraId, true, undefined, 'preview')
+      return
+    }
     this.syncGizmo(this.gizmoNodeId, this.gizmoMode, this.gizmoSuspended, this.gizmoNodeIds)
     syncPathSelection(
       this,
@@ -1207,9 +1365,34 @@ export class Stage implements DirectorEngine, PathViewHost {
       hideOverlays ? [] : this.visiblePathIds,
       hideOverlays,
     )
-    const aspect = this.resolvedAspect()
-    this.viewport.previewAspect = aspect
+    this.viewport.previewAspect = viewAspect
+    this.viewport.letterboxAspect = this.programPreviewActive && viewId ? viewAspect : null
+    const framedAspect = !this.programPreviewActive && (this.viewport.followMode || this.viewport.cameraPilot) && viewId
+      ? viewAspect
+      : null
+    if (framedAspect !== this.viewport.framedAspect) {
+      this.viewport.framedAspect = framedAspect
+      this.events.emit('camera:frame', framedAspect)
+    }
+    this.syncJointHandles()
+    syncLabelTransforms()
+    const selectedIds = new Set(
+      this.gizmoNodeIds?.length ? this.gizmoNodeIds : this.gizmoNodeId ? [this.gizmoNodeId] : [],
+    )
+    this.viewport.outlineRoots = hideOverlays || this.gizmoSuspended ? [] : this.selectionOutlineRoots(selectedIds)
+    this.viewport.render(
+      this.scene,
+      this.cameras,
+      this.programCameraId ?? this.activeCameraId,
+      hideOverlays,
+      selectedIds,
+      isolatePreview || !previewDirty ? 'main' : 'both',
+    )
+  }
+
+  private syncCameraAspects(mainAspect: number): void {
     for (const cam of this.cameras.values()) {
+      const aspect = this.aspectForCamera(cam.node.camera, mainAspect)
       cam.gizmo.setAspect(aspect)
       cam.gizmo.setFov(cam.camera.fov)
       if (Math.abs(cam.camera.aspect - aspect) > 1e-3) {
@@ -1217,17 +1400,5 @@ export class Stage implements DirectorEngine, PathViewHost {
         cam.camera.updateProjectionMatrix()
       }
     }
-    this.syncJointHandles()
-    syncLabelTransforms()
-    const selectedIds = new Set(
-      this.gizmoNodeIds?.length ? this.gizmoNodeIds : this.gizmoNodeId ? [this.gizmoNodeId] : [],
-    )
-    this.viewport.render(
-      this.scene,
-      this.cameras,
-      this.programCameraId ?? this.activeCameraId,
-      hideOverlays,
-      selectedIds,
-    )
   }
 }

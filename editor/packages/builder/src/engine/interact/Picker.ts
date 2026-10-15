@@ -17,7 +17,9 @@ export function ndcFromClient(
 export class Picker {
   readonly raycaster = new THREE.Raycaster()
 
-  constructor(private readonly camera: THREE.PerspectiveCamera) {}
+  constructor(private readonly source: THREE.Camera | (() => THREE.Camera)) {}
+
+  private get camera(): THREE.Camera { return typeof this.source === 'function' ? this.source() : this.source }
 
   pickNodeHit(graph: StageGraph, ndcX: number, ndcY: number): { id: string; dist: number } | null {
     this.raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), this.camera)

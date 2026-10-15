@@ -142,6 +142,12 @@ for (const name of ['draco_decoder.js', 'draco_decoder.wasm', 'draco_wasm_wrappe
   stageFile(path.join(builderDraco, name), stagedPath(path.join(builderDraco, name)))
 }
 
+// Studio bundles the builder's OFL fonts; their licence texts must ship with them.
+const builderFonts = path.join(ROOT, 'node_modules/@topview/3d-builder/dist/fonts')
+for (const name of readdirSync(builderFonts).filter((file) => file.endsWith('.txt'))) {
+  stageFile(path.join(builderFonts, name), stagedPath(path.join(builderFonts, name)))
+}
+
 for (const [name, dir] of packages) {
   stageFile(path.join(dir, 'package.json'), path.join(OUT_CLI, 'node_modules', name, 'package.json'))
   for (const licence of ['LICENSE', 'LICENSE.md', 'LICENSE.txt']) {

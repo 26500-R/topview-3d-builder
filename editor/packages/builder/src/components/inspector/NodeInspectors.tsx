@@ -9,14 +9,15 @@ import { CameraTransformPanel } from '../common/CameraTransformPanel'
 import { CharacterColorPanel } from '../common/CharacterColorPanel'
 import { NodeNameEditor } from '../common/NodeNameEditor'
 import { displayNodeName } from '../displayNames'
-import { NodeTransformPanel, ResetTransformButton, TransformKeyframeButton } from '../common/NodeTransformPanel'
-import { Dropdown } from '../common/Dropdown'
+import { MultiTransformPanel, NodeTransformPanel, ResetTransformButton, TransformKeyframeButton } from '../common/NodeTransformPanel'
 import { cx } from '../common/cx'
 import { IconCharacter, IconObject, IconProp } from '../leftrail/icons'
-import { FieldRow, InspectorSection, PosePanel, ToggleRow } from './PosePanel'
+import { FieldRow, InspectorSection, MultiPosePanel, PosePanel, ToggleRow } from './PosePanel'
+import { CameraPathFacing } from './CameraPathFacing'
 import { PathEditButton, PathSection } from './PathControls'
 import { NODE_DELETE_LABEL } from './constants'
 import { nodeTypeLabel } from './utils'
+import { useCharacterInspectorTab } from './hooks/useCharacterInspectorTab'
 
 function IconRename() {
   return (
@@ -71,6 +72,15 @@ function InspectorTitle({
   )
 }
 
+function PlaceActions({ nodeId, locked }: { nodeId: string; locked: boolean }) {
+  return (
+    <div className="t3d-place-actions">
+      <PlaceOnSupportRow nodeId={nodeId} locked={locked} />
+      <PlaceOnGroundButton nodeId={nodeId} locked={locked} />
+    </div>
+  )
+}
+
 function PlaceOnGroundButton({ nodeId, locked }: { nodeId: string; locked: boolean }) {
   const t = useT()
   const { useStore } = useDirector()
@@ -94,52 +104,40 @@ function PlaceOnGroundButton({ nodeId, locked }: { nodeId: string; locked: boole
 function PlaceOnSupportRow({ nodeId, locked }: { nodeId: string; locked: boolean }) {
   const t = useT()
   const { useStore } = useDirector()
-  const doc = useStore((s) => s.doc)
-  const placeNodeOnSupport = useStore((s) => s.placeNodeOnSupport)
-  const [supportId, setSupportId] = useState('')
-  const targets = (doc?.content.nodes ?? []).filter(
-    (n) =>
-      n.id !== nodeId && (n.type === 'character' || n.type === 'prop' || n.type === 'primitive'),
-  )
-  if (targets.length === 0) return null
-  const chosen = targets.some((n) => n.id === supportId) ? supportId : ''
+  const placeOnSupportPickingId = useStore((s) => s.placeOnSupportPickingId)
+  const beginPlaceOnSupportPick = useStore((s) => s.beginPlaceOnSupportPick)
+  const cancelPlaceOnSupportPick = useStore((s) => s.cancelPlaceOnSupportPick)
+  const picking = placeOnSupportPickingId === nodeId
   return (
     <div className="t3d-place-on">
-      <div className="t3d-cam-aim-target">
-        <span>{t('inspector.placeOnSupport')}</span>
-        <Dropdown
-          ariaLabel={t('inspector.pickSupport')}
-          value={chosen}
-          disabled={locked}
-          options={[
-            { value: '', label: t('inspector.pickSupport') },
-            ...targets.map((n) => ({ value: n.id, label: displayNodeName(t, n) })),
-          ]}
-          onChange={setSupportId}
-        />
-      </div>
       <button
         type="button"
-        className="t3d-inspector-action"
-        disabled={locked || !chosen}
+        className={cx('t3d-inspector-action', picking && 'is-active')}
+        aria-pressed={picking}
+        disabled={locked}
         title={locked ? t('inspector.nodeLocked') : t('inspector.placeOnSupportHint')}
         onClick={() => {
-          if (locked || !chosen) return
-          placeNodeOnSupport(nodeId, chosen)
+          if (locked) return
+          if (picking) cancelPlaceOnSupportPick()
+          else beginPlaceOnSupportPick(nodeId)
         }}
       >
-        {t('inspector.placeOnSupportAction')}
+        {t('inspector.placeOnSupport')}
       </button>
     </div>
   )
 }
 
-/** 多选面板：几何对象共用材质色。显隐和锁定在对象栏。 */
+/** 多选面板：几何对象共用材质色。全是人物时多一个姿势页，一次套到所有未锁定人物。 */
 export function MultiNodeInspector({ nodes }: { nodes: DraftNode[] }): ReactElement {
   const t = useT()
   const { useStore } = useDirector()
   const setCharacterAppearance = useStore((s) => s.setCharacterAppearance)
   const setObjectAppearance = useStore((s) => s.setObjectAppearance)
+  const setNodesShowLabel = useStore((s) => s.setNodesShowLabel)
+  const allCharacters = nodes.every((node) => node.type === 'character' && node.character)
+  const [tab, setTab] = useState<'props' | 'pose'>('props')
+  const showPose = allCharacters && tab === 'pose'
   const materialNodes = nodes.filter(
     (node) => node.type === 'character' || node.type === 'prop' || node.type === 'primitive',
   )
@@ -160,24 +158,108 @@ export function MultiNodeInspector({ nodes }: { nodes: DraftNode[] }): ReactElem
       else setObjectAppearance(node.id, { color })
     }
   }
+  const labelNodes = nodes.filter((node) => node.character || node.type === 'prop' || node.type === 'primitive')
+  const labelShown = (node: DraftNode): boolean => {
+    if (node.character) return node.character.label.showLabel !== false
+    if (node.prop) return node.prop.label?.showLabel === true
+    return node.primitive?.label?.showLabel === true
+  }
+  const labelsOn = labelNodes.length > 0 && labelNodes.every(labelShown)
+  const labelsLocked = labelNodes.length > 0 && labelNodes.every((node) => node.locked)
 
   return (
-    <div className="t3d-inspector">
+    <div className={cx('t3d-inspector', showPose && 't3d-inspector-pose')}>
       <div className="t3d-inspector-title">
         <IconObject className="t3d-inspector-title-icon" />
         <span className="t3d-inspector-title-text">
           {t('inspector.multiSelectTitle', { count: nodes.length })}
         </span>
       </div>
-      {materialNodes.length > 0 ? (
-        <InspectorSection title={t('inspector.material')}>
-          <CharacterColorPanel
-            color={materialColor}
-            onChange={applyMaterialColor}
-          />
-        </InspectorSection>
+      {allCharacters ? (
+        <div className="t3d-inspector-tabs">
+          <button
+            type="button"
+            className={cx('t3d-inspector-tab', tab === 'props' && 't3d-inspector-tab-active')}
+            onClick={() => setTab('props')}
+          >
+            {t('inspector.tabProps')}
+          </button>
+          <button
+            type="button"
+            className={cx('t3d-inspector-tab', tab === 'pose' && 't3d-inspector-tab-active')}
+            onClick={() => setTab('pose')}
+          >
+            {t('inspector.tabPose')}
+          </button>
+        </div>
       ) : null}
+      {showPose ? (
+        <MultiPosePanel nodes={nodes} />
+      ) : (
+        <>
+          {labelNodes.length > 0 ? (
+            <div className="t3d-inspector-flags">
+              <ToggleRow
+                label={t('inspector.showLabel')}
+                checked={labelsOn}
+                disabled={labelsLocked}
+                onChange={(next) => setNodesShowLabel(labelNodes.map((node) => node.id), next)}
+              />
+            </div>
+          ) : null}
+          <InspectorSection
+            title={t('timeline.transform')}
+            defaultOpen={false}
+            extra={
+              <span className="t3d-inspector-section-actions">
+                <TransformKeyframeButton
+                  nodeId={nodes[0]?.id ?? ''}
+                  locked={nodes.every((node) => node.locked)}
+                />
+              </span>
+            }
+          >
+            <MultiTransformPanel nodeIds={nodes.map((node) => node.id)} />
+          </InspectorSection>
+          {materialNodes.length > 0 ? (
+            <InspectorSection title={t('inspector.material')}>
+              <CharacterColorPanel
+                color={materialColor}
+                onChange={applyMaterialColor}
+              />
+            </InspectorSection>
+          ) : null}
+          {materialNodes.length > 0 ? (
+            <div className="t3d-place-actions">
+              <PlaceNodesOnGroundButton nodes={materialNodes} />
+            </div>
+          ) : null}
+        </>
+      )}
     </div>
+  )
+}
+
+/** 多选放在地面：能放的（未锁定的人物 / 道具 / 几何体）各自贴地，全锁定时禁用。 */
+function PlaceNodesOnGroundButton({ nodes }: { nodes: DraftNode[] }) {
+  const t = useT()
+  const { useStore } = useDirector()
+  const placeNodesOnGround = useStore((s) => s.placeNodesOnGround)
+  const movable = nodes.filter((node) => !node.locked)
+  const locked = movable.length === 0
+  return (
+    <button
+      type="button"
+      className="t3d-inspector-action"
+      disabled={locked}
+      title={locked ? t('inspector.nodeLocked') : undefined}
+      onClick={() => {
+        if (locked) return
+        placeNodesOnGround(movable.map((node) => node.id))
+      }}
+    >
+      {t('inspector.placeOnGround')}
+    </button>
   )
 }
 
@@ -202,19 +284,18 @@ export function NodePanel({ node }: { node: DraftNode }): ReactElement {
       />
       {node.type === 'path' && !isDerivedTransformPath(node) ? <PathSection key={node.id} node={node} /> : null}
       {node.type === 'primitive' ? (
-        <InspectorSection title={t('inspector.display')}>
+        <div className="t3d-inspector-flags">
           <ToggleRow
             label={t('inspector.showLabel')}
             checked={primitiveLabelVisible}
             disabled={locked}
             onChange={(showLabel) => setObjectAppearance(node.id, { showLabel })}
           />
-        </InspectorSection>
+        </div>
       ) : null}
       <InspectorSection
         key={`${node.id}:transform`}
         title={t('timeline.transform')}
-        defaultOpen={false}
         extra={
           <span className="t3d-inspector-section-actions">
             <TransformKeyframeButton nodeId={node.id} locked={locked} />
@@ -223,20 +304,11 @@ export function NodePanel({ node }: { node: DraftNode }): ReactElement {
         }
       >
         {node.camera ? (
-          <>
-            <CameraTransformPanel cameraId={node.id} />
-            <CameraLensPanel cameraId={node.id} />
-          </>
+          <CameraTransformPanel cameraId={node.id} />
         ) : (
           <>
             <NodeTransformPanel nodeId={node.id} locked={locked} />
             {node.character ? <FieldRow label={t('inspector.color')} value={node.character.appearance.color} /> : null}
-            {node.type === 'character' || node.type === 'prop' || node.type === 'primitive' ? (
-              <>
-                <PlaceOnSupportRow nodeId={node.id} locked={locked} />
-                <PlaceOnGroundButton nodeId={node.id} locked={locked} />
-              </>
-            ) : null}
           </>
         )}
       </InspectorSection>
@@ -254,12 +326,20 @@ export function NodePanel({ node }: { node: DraftNode }): ReactElement {
         </InspectorSection>
       ) : null}
       {node.camera ? (
-        <InspectorSection key={`${node.id}:lookAt`} title={t('timeline.lookAt')} defaultOpen={false}>
+        <InspectorSection key={`${node.id}:lens`} title={t('inspector.lens')}>
+          <CameraLensPanel cameraId={node.id} />
+        </InspectorSection>
+      ) : null}
+      {node.camera ? (
+        <InspectorSection key={`${node.id}:lookAt`} title={t('timeline.lookAt')}>
           <CameraSubjectPanel cameraId={node.id} />
         </InspectorSection>
       ) : null}
       {node.type === 'character' ? <PosePanel node={node} /> : null}
       {node.type === 'path' && !isDerivedTransformPath(node) ? <PathEditButton node={node} /> : null}
+      {node.type === 'character' || node.type === 'prop' || node.type === 'primitive' ? (
+        <PlaceActions nodeId={node.id} locked={locked} />
+      ) : null}
       {deleteKey ? (
         <button
           type="button"
@@ -276,6 +356,7 @@ export function NodePanel({ node }: { node: DraftNode }): ReactElement {
           {t(deleteKey)}
         </button>
       ) : null}
+      {node.camera ? <CameraPathFacing cameraId={node.id} /> : null}
     </div>
   )
 }
@@ -315,17 +396,16 @@ export function PropInspector({ node: n }: { node: DraftNode }) {
   return (
     <div className="t3d-inspector">
       <InspectorTitle node={n} icon={<IconProp className="t3d-inspector-title-icon" />} />
-      <InspectorSection title={t('inspector.display')}>
+      <div className="t3d-inspector-flags">
         <ToggleRow
           label={t('inspector.showLabel')}
           checked={showLabel}
           disabled={locked}
           onChange={(next) => setObjectAppearance(n.id, { showLabel: next })}
         />
-      </InspectorSection>
+      </div>
       <InspectorSection
         title={t('timeline.transform')}
-        defaultOpen={false}
         extra={
           <span className="t3d-inspector-section-actions">
           <TransformKeyframeButton nodeId={n.id} locked={locked} />
@@ -334,8 +414,6 @@ export function PropInspector({ node: n }: { node: DraftNode }) {
         }
       >
         <NodeTransformPanel nodeId={n.id} locked={locked} />
-        <PlaceOnSupportRow nodeId={n.id} locked={locked} />
-        <PlaceOnGroundButton nodeId={n.id} locked={locked} />
       </InspectorSection>
       <InspectorSection title={t('inspector.material')}>
         <CharacterColorPanel
@@ -344,6 +422,7 @@ export function PropInspector({ node: n }: { node: DraftNode }) {
           onChange={(next) => setObjectAppearance(n.id, { color: next })}
         />
       </InspectorSection>
+      <PlaceActions nodeId={n.id} locked={locked} />
       <DeleteNodeButton node={n} />
     </div>
   )
@@ -357,7 +436,7 @@ export function CharacterInspector({ node: n }: { node: DraftNode }) {
   const t = useT()
   const { useStore } = useDirector()
   const setCharacterAppearance = useStore((s) => s.setCharacterAppearance)
-  const [tab, setTab] = useState<'props' | 'pose'>('props')
+  const [tab, setTab] = useCharacterInspectorTab(n.id)
   const locked = Boolean(n.locked)
   const showLabel = n.character?.label.showLabel !== false
   return (
@@ -395,7 +474,6 @@ export function CharacterInspector({ node: n }: { node: DraftNode }) {
           </div>
           <InspectorSection
             title={t('timeline.transform')}
-            defaultOpen={false}
             extra={
           <span className="t3d-inspector-section-actions">
           <TransformKeyframeButton nodeId={n.id} locked={locked} />
@@ -404,8 +482,6 @@ export function CharacterInspector({ node: n }: { node: DraftNode }) {
         }
           >
             <NodeTransformPanel nodeId={n.id} locked={locked} />
-            <PlaceOnSupportRow nodeId={n.id} locked={locked} />
-            <PlaceOnGroundButton nodeId={n.id} locked={locked} />
           </InspectorSection>
           {n.character ? (
             <InspectorSection title={t('inspector.material')}>
@@ -416,6 +492,7 @@ export function CharacterInspector({ node: n }: { node: DraftNode }) {
               />
             </InspectorSection>
           ) : null}
+          <PlaceActions nodeId={n.id} locked={locked} />
         </>
       )}
     </div>

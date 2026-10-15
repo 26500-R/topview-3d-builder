@@ -3,7 +3,7 @@ import { deliverBlob, makeOffscreenRenderer, renderExportFrame, type ExportCommo
 
 export async function renderFramePngBlob(opts: ExportCommonOptions & { frame: number }): Promise<Blob> {
   const cam = opts.stage.getCameraForExport(opts.cameraId)
-  if (!cam) throw new Error(`找不到相机 ${opts.cameraId}`)
+  if (!cam) throw new Error(`Camera not found: ${opts.cameraId}`)
   const gpu = opts.stage.acquireExportGpu?.(opts.width, opts.height)
   try {
     if (gpu) {
@@ -14,7 +14,7 @@ export async function renderFramePngBlob(opts: ExportCommonOptions & { frame: nu
     try {
       renderExportFrame(opts, opts.frame, cam, renderer)
       const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
-      if (!blob) throw new Error('canvas.toBlob 返回 null')
+      if (!blob) throw new Error('Image capture failed: no image data was generated')
       return blob
     } finally {
       renderer.dispose()

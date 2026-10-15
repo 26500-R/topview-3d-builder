@@ -1,4 +1,6 @@
+import { CompassView } from '../interact/camera/CompassView'
 import * as THREE from 'three'
+import { type EditorViewDirection } from '../interact/camera/axisView'
 import { FALLBACK_ASPECT } from '../../contract/aspectRatio'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import type { CamInstance } from '../objects/types'
@@ -8,11 +10,35 @@ import { computeFocusCameraPose } from '../interact/frameSelection'
 import { UnifiedGizmo, type GizmoDuplicateItem } from '../interact/UnifiedGizmo'
 import { computeViewCenterPivot } from '../interact/camera/viewCenterPivot'
 import { bindViewportNavigation, type ViewportNavPickHandlers } from '../interact/ViewportNavigation'
-import { createCanvasRenderer, fitRenderer } from './Renderer'
-import { EDITOR_LAYER } from './Layers'
+import { createCanvasRenderer, fitRenderer, MotionPixelRatio } from './Renderer'
+import { exportCameraLayerMask } from './Layers'
+import { SelectionOutline } from './SelectionOutline'
 
 /** 小于这个尺寸的机位预览已经看不出内容，不值得为它多渲一遍整场景。 */
 const MIN_PREVIEW_PX = 48
+
+/** 取景框占主画布的上限，必须与 viewport.css `.t3d-pilot-frame` 的 86cqw / 78cqh 一致。 */
+const FRAME_MAX_WIDTH = 0.86
+const FRAME_MAX_HEIGHT = 0.78
+
+/** 取景框在画布里的尺寸：宽高比固定，居中，先撞到哪条上限就按哪条缩。 */
+export function framedRect(canvasWidth: number, canvasHeight: number, aspect: number): { width: number; height: number } {
+  const width = Math.min(FRAME_MAX_WIDTH * canvasWidth, FRAME_MAX_HEIGHT * canvasHeight * aspect)
+  return { width, height: width / aspect }
+}
+
+/** 按画幅在画布里撑到最大并居中，余下的留黑边；机位预览和成片监看共用。 */
+export function letterboxRect(canvasWidth: number, canvasHeight: number, aspect: number): { x: number; y: number; width: number; height: number } {
+  let width = canvasWidth
+  let height = canvasWidth / aspect
+  if (height > canvasHeight) {
+    height = canvasHeight
+    width = canvasHeight * aspect
+  }
+  return { x: (canvasWidth - width) / 2, y: (canvasHeight - height) / 2, width, height }
+}
+
+const _clearColor = new THREE.Color()
 
 export type GizmoMode = 'select' | 'translate' | 'rotate' | 'scale'
 
@@ -24,10 +50,13 @@ export const DEFAULT_EDITOR_CAMERA = {
 
 export interface ViewportHost {
   onInvalidate(): void
+  /** 只有编辑相机变了：预览画的是机位，不用重画。 */
+  onInvalidateMain(): void
   onEditorCameraChange(): void
   onContextLostChange(lost: boolean): void
   onContextRestored(): void
   getSceneMeshes(): THREE.Object3D[]
+  getSceneBounds(): THREE.Box3
   getOrbitPivot(): { x: number; y: number; z: number }
 }
 
@@ -44,15 +73,40 @@ export class DualViewport {
   private gizmoSuppressed = false
   private unbindBoxSelectGuard: (() => void) | null = null
   private focusRaf = 0
+  private readonly compass = new CompassView()
+
+  get viewCamera(): THREE.PerspectiveCamera | THREE.OrthographicCamera {
+    return this.compass.direction ? this.compass.camera : this.editorCamera
+  }
+
+  get viewDirection(): EditorViewDirection | null { return this.compass.direction }
+
+  private exitCompassView(): void {
+    if (!this.compass.direction) return
+    this.compass.exit()
+    if (this.unified) this.unified.camera = this.editorCamera
+    this.cameraRig?.snapFromCamera()
+    this.host.onEditorCameraChange()
+    this.host.onInvalidateMain()
+  }
   followMode = false
   cameraPilot = false
   jointBusy = false
   previewAspect = FALLBACK_ASPECT
+  /** 非空时主视口按机位取景：机位画面正好落在居中的取景框里，框外是延伸出去的场景。 */
+  framedAspect: number | null = null
+  /** 非空时主视口是成片监看：机位画面按画幅撑满画布，四周黑边，不露框外场景。 */
+  letterboxAspect: number | null = null
+  /** 要描橙色外轮廓的选中对象根节点；由 Stage 每帧按 gizmo 同一套显隐条件填，空数组就是不描。 */
+  outlineRoots: readonly THREE.Object3D[] = []
+  private selectionOutline: SelectionOutline | null = null
+  private readonly mainPixelRatio = new MotionPixelRatio(() => this.host.onInvalidateMain())
   private lostMain = false
   private lostPreview = false
   private unbindMain: (() => void) | null = null
   private unbindPreview: (() => void) | null = null
   private tcAttachedId: string | null = null
+  private syncedTargets = new Map<string, THREE.Object3D>()
   private followPrev: { id: string; position: THREE.Vector3; quaternion: THREE.Quaternion } | null = null
   private preFollow: {
     position: THREE.Vector3
@@ -60,6 +114,8 @@ export class DualViewport {
     target: THREE.Vector3
     fov: number
   } | null = null
+  /** 操控中的机位 id；属性面板改焦距只落到机位实例，视口相机要靠它逐帧跟。 */
+  private pilotCameraId: string | null = null
   private prePilot: {
     position: THREE.Vector3
     quaternion: THREE.Quaternion
@@ -90,8 +146,9 @@ export class DualViewport {
     this.cameraRig = new EditorCameraController(this.editorCamera, {
       invalidate: () => {
         this.host.onEditorCameraChange()
-        this.host.onInvalidate()
+        this.host.onInvalidateMain()
       },
+      beforeNavigate: () => this.exitCompassView(),
       getSceneMeshes: () => this.host.getSceneMeshes(),
       getOrbitPivot: () => this.host.getOrbitPivot(),
       syncLookTarget: (_position, target) => {
@@ -124,6 +181,7 @@ export class DualViewport {
   }
 
   detachMain(): void {
+    this.exitCompassView()
     cancelAnimationFrame(this.focusRaf)
     this.unbindBoxSelectGuard?.()
     this.unbindBoxSelectGuard = null
@@ -143,6 +201,9 @@ export class DualViewport {
     this.controls?.removeEventListener('change', this.onOrbitChange)
     this.controls?.dispose()
     this.controls = null
+    this.selectionOutline?.dispose()
+    this.selectionOutline = null
+    this.mainPixelRatio.dispose()
     this.rendererMain?.dispose()
     this.rendererMain = null
   }
@@ -242,7 +303,19 @@ export class DualViewport {
     )
   }
 
+  setEditorView(direction: EditorViewDirection): void {
+    if (this.cameraPilot || this.followMode) return
+    cancelAnimationFrame(this.focusRaf)
+    this.compass.fit(direction, this.host.getSceneBounds(), this.mainAspect(), this.editorCamera)
+    this.controls?.target.copy(this.compass.center)
+    if (this.unified) this.unified.camera = this.viewCamera
+    this.cameraRig?.snapFromCamera()
+    this.host.onEditorCameraChange()
+    this.host.onInvalidateMain()
+  }
+
   resetEditorView(): void {
+    this.exitCompassView()
     const [px, py, pz] = DEFAULT_EDITOR_CAMERA.position
     const [tx, ty, tz] = DEFAULT_EDITOR_CAMERA.target
     this.editorCamera.position.set(px, py, pz)
@@ -255,10 +328,11 @@ export class DualViewport {
     if (this.controls) this.controls.target.set(tx, ty, tz)
     this.cameraRig?.snapFromCamera()
     this.host.onEditorCameraChange()
-    this.host.onInvalidate()
+    this.host.onInvalidateMain()
   }
 
   beginFollow(): void {
+    this.exitCompassView()
     if (!this.controls) return
     this.preFollow = {
       position: this.editorCamera.position.clone(),
@@ -288,6 +362,7 @@ export class DualViewport {
   }
 
   beginCameraPilot(cam: CamInstance): boolean {
+    this.exitCompassView()
     if (!this.controls || this.cameraPilot) return this.cameraPilot
     this.prePilot = {
       position: this.editorCamera.position.clone(),
@@ -309,6 +384,7 @@ export class DualViewport {
     this.controls.target.copy(pos).addScaledVector(forward, 4)
     this.cameraRig?.snapFromCamera()
     this.cameraPilot = true
+    this.pilotCameraId = cam.node.id
     this.host.onEditorCameraChange()
     this.host.onInvalidate()
     return true
@@ -317,6 +393,7 @@ export class DualViewport {
   endCameraPilot(): { position: { x: number; y: number; z: number }; forward: { x: number; y: number; z: number } } | null {
     const pose = this.cameraPilot ? this.readCameraPilotPose() : null
     this.cameraPilot = false
+    this.pilotCameraId = null
     if (this.prePilot && this.controls) {
       this.editorCamera.position.copy(this.prePilot.position)
       this.editorCamera.quaternion.copy(this.prePilot.quaternion)
@@ -362,6 +439,10 @@ export class DualViewport {
     return this.tcAttachedId ? [this.tcAttachedId] : []
   }
 
+  gizmoPivot(): { x: number; y: number; z: number } | null {
+    return this.unified?.pivotWorld() ?? null
+  }
+
   gizmoInteractionProp(): 'position' | 'rotation' | 'scale' {
     return this.unified?.interactionProp() ?? 'position'
   }
@@ -378,6 +459,11 @@ export class DualViewport {
     if (this.gizmoBusy()) return
     this.unified?.attach(scene, targets)
     this.tcAttachedId = targets.keys().next().value ?? null
+    // forceRender 每帧都会走到这里；目标没变还 invalidate 会让按需渲染变成逐帧空转。
+    const prev = this.syncedTargets
+    const same = prev.size === targets.size && [...targets].every(([id, obj]) => prev.get(id) === obj)
+    if (same) return
+    this.syncedTargets = new Map(targets)
     this.host.onInvalidate()
   }
 
@@ -413,6 +499,7 @@ export class DualViewport {
   }
 
   focusBounds(box: THREE.Box3): void {
+    this.exitCompassView()
     if (box.isEmpty()) return
     cancelAnimationFrame(this.focusRaf)
     const target = box.getCenter(new THREE.Vector3())
@@ -452,7 +539,7 @@ export class DualViewport {
       if (this.controls) this.controls.target.copy(target)
       if (raw >= 1) this.cameraRig?.snapFromCamera()
       this.host.onEditorCameraChange()
-      this.host.onInvalidate()
+      this.host.onInvalidateMain()
       if (raw < 1) this.focusRaf = requestAnimationFrame(step)
     }
     this.focusRaf = requestAnimationFrame(step)
@@ -490,10 +577,17 @@ export class DualViewport {
     activeCameraId: string | null,
     hideOverlays = false,
     selectedIds?: ReadonlySet<string>,
+    pass: 'both' | 'main' | 'preview' = 'both',
   ): void {
+    if (pass === 'preview') {
+      this.renderPreview(scene, cameras, activeCameraId)
+      return
+    }
     this.unified?.update()
     const followCamInst = this.followMode && activeCameraId ? cameras.get(activeCameraId) : null
     if (followCamInst) this.trackFollowCamera(followCamInst)
+    const pilotCamInst = this.cameraPilot && this.pilotCameraId ? cameras.get(this.pilotCameraId) : null
+    if (pilotCamInst) this.syncPilotFov(pilotCamInst)
     const skipGizmoIds = this.gizmoBusy() ? new Set(this.gizmoAttachedNodeIds()) : null
     for (const [id, cam] of cameras) {
       // 橙色是选中态。预览用的 active camera 未选中时保持蓝色。
@@ -501,21 +595,93 @@ export class DualViewport {
       if (!skipGizmoIds?.has(id)) cam.gizmo.sync(cam.camera)
       cam.gizmo.group.visible = !hideOverlays && !followCamInst && cam.node.visible !== false
     }
+    if (rendererAlive(this.rendererMain)) this.mainPixelRatio.apply(this.rendererMain, window.devicePixelRatio)
     if (rendererAlive(this.rendererMain) && fitRenderer(this.rendererMain)) {
-      const c = this.rendererMain.domElement
-      const aspect = c.clientWidth / Math.max(1, c.clientHeight)
-      if (Math.abs(this.editorCamera.aspect - aspect) > 1e-3) {
-        this.editorCamera.aspect = aspect
-        this.editorCamera.updateProjectionMatrix()
+      const r = this.rendererMain
+      const c = r.domElement
+      const width = c.clientWidth
+      const height = Math.max(1, c.clientHeight)
+      const aspect = width / height
+      const box = this.letterboxAspect ? letterboxRect(width, height, this.letterboxAspect) : null
+      this.syncEditorProjection(width, height, box)
+      // 机位视角 / 操控相机要藏轨迹和 gizmo，地面网格在另一层，不能一起关掉。
+      this.compass.resize(aspect)
+      const viewCamera = this.viewCamera
+      const prevMask = viewCamera.layers.mask
+      if (hideOverlays) viewCamera.layers.mask = exportCameraLayerMask(prevMask)
+      if (box) {
+        r.getClearColor(_clearColor)
+        const clearAlpha = r.getClearAlpha()
+        r.setScissorTest(false)
+        r.setViewport(0, 0, width, height)
+        r.setClearColor(0x000000, 1)
+        r.clear()
+        r.setClearColor(_clearColor, clearAlpha)
+        r.setViewport(box.x, box.y, box.width, box.height)
+        r.setScissor(box.x, box.y, box.width, box.height)
+        r.setScissorTest(true)
       }
-      // Camera playback is a clean program view: editor-only overlays such as
-      // path lines, motion guides and gizmos must not cover the camera image.
-      const editorLayerWasEnabled = this.editorCamera.layers.isEnabled(EDITOR_LAYER)
-      if (hideOverlays && editorLayerWasEnabled) this.editorCamera.layers.disable(EDITOR_LAYER)
-      this.rendererMain.render(scene, this.editorCamera)
-      if (hideOverlays && editorLayerWasEnabled) this.editorCamera.layers.enable(EDITOR_LAYER)
+      r.render(scene, viewCamera)
+      if (box) {
+        r.setScissorTest(false)
+        r.setViewport(0, 0, width, height)
+      }
+      // 描边和 gizmo 同显同隐：hideOverlays（成片监看 / 机位视角 / 操控相机）时不画。
+      if (!hideOverlays && !box && this.outlineRoots.length > 0) {
+        this.selectionOutline ??= new SelectionOutline()
+        this.selectionOutline.render(r, scene, viewCamera, this.outlineRoots)
+      }
+      if (hideOverlays) viewCamera.layers.mask = prevMask
     }
-    this.renderPreview(scene, cameras, activeCameraId)
+    if (pass === 'both') this.renderPreview(scene, cameras, activeCameraId)
+  }
+
+  /**
+   * 取景时机位的垂直 FOV 只对应取景框的高度，不是整块画布；
+   * 用负偏移的 view offset 把视锥向四周外扩，框内画面才和机位预览、导出一致。
+   */
+  private syncEditorProjection(width: number, height: number, box: { width: number; height: number } | null): void {
+    const cam = this.editorCamera
+    const framed = this.framedAspect
+    if (box) {
+      const boxAspect = box.width / box.height
+      if (!cam.view && Math.abs(cam.aspect - boxAspect) <= 1e-3) return
+      if (cam.view) cam.clearViewOffset()
+      cam.aspect = boxAspect
+      cam.updateProjectionMatrix()
+      return
+    }
+    if (framed && framed > 0) {
+      const frame = framedRect(width, height, framed)
+      const view = cam.view
+      const same = view?.enabled
+        && Math.abs(view.fullWidth - frame.width) < 1e-3
+        && Math.abs(view.fullHeight - frame.height) < 1e-3
+        && view.width === width
+        && view.height === height
+      if (same) return
+      cam.aspect = framed
+      cam.setViewOffset(frame.width, frame.height, (frame.width - width) / 2, (frame.height - height) / 2, width, height)
+      return
+    }
+    const aspect = width / height
+    if (cam.view) cam.clearViewOffset()
+    else if (Math.abs(cam.aspect - aspect) <= 1e-3) return
+    cam.aspect = aspect
+    cam.updateProjectionMatrix()
+  }
+
+  /**
+   * 操控相机时视口相机是独立的 editorCamera，位姿由用户飞；焦距却属于机位节点，
+   * 属性面板改它只更新机位实例。每帧把 fov 对齐过来，视口才会实时变焦。
+   * updateProjectionMatrix 会沿用当前 view offset，取景框的外扩不受影响。
+   */
+  private syncPilotFov(cam: CamInstance): void {
+    if (Math.abs(this.editorCamera.fov - cam.camera.fov) <= 1e-4) return
+    this.editorCamera.fov = cam.camera.fov
+    this.editorCamera.updateProjectionMatrix()
+    this.cameraRig?.syncFov(cam.camera.fov)
+    this.host.onEditorCameraChange()
   }
 
   private trackFollowCamera(cam: CamInstance): void {
@@ -564,14 +730,7 @@ export class DualViewport {
     const w = r.domElement.clientWidth
     const h = r.domElement.clientHeight
     const targetAspect = this.previewAspect > 0 ? this.previewAspect : FALLBACK_ASPECT
-    let vw = w
-    let vh = w / targetAspect
-    if (vh > h) {
-      vh = h
-      vw = h * targetAspect
-    }
-    const vx = (w - vw) / 2
-    const vy = (h - vh) / 2
+    const { x: vx, y: vy, width: vw, height: vh } = letterboxRect(w, h, targetAspect)
     if (Math.abs(cam.aspect - vw / vh) > 1e-3) {
       cam.aspect = vw / vh
       cam.updateProjectionMatrix()
