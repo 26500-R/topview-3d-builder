@@ -32,29 +32,22 @@ https://github.com/user-attachments/assets/ae8923ce-e03e-473c-8e75-941bcb945f9c
 
 **Recommended model: Qwen 3.8 Flash.** It costs about 1/140 of GPT 6 Astra and reaches a similar result. We recommend using it.
 
-Works with **ChatGPT / Codex**, **Cursor** and **Claude Code**. You need Python 3.11+, Node.js 20.6+, and either [uv](https://docs.astral.sh/uv/) or pipx.
+Works with **ChatGPT / Codex**, **Qoder**, **Claude Code**, **Cursor** and any agent with skills support. You need Python 3.11+, Node.js 20.6+, and either [uv](https://docs.astral.sh/uv/) or pipx.
 
-**1. Send this to your agent**
+**1. Install the plugin**
+
+**ChatGPT / Codex**: open the plugin page in the app and install it from there.
+
+[Install Topview 3D Builder in ChatGPT / Codex](https://chatgpt.com/plugins/plugin_asdk_app_6accab1016088191b19230b3c7ecaec4?open_in_app)
+
+**Other agents (Qoder, Claude Code, Cursor, or any agent with skills support)**: send this to your agent.
 
 ```text
-Install the Topview 3D Builder plugin from https://github.com/topviewai/topview-3d-builder for the agent I'm using (ChatGPT / Codex, Cursor or Claude Code). Follow the install steps in the README, then tell me when to restart.
+Install the Topview 3D Builder plugin from https://github.com/topviewai/topview-3d-builder for the agent I'm using (Qoder, Claude Code, Cursor or another agent with skills support). Follow the install steps in the README, then tell me when to restart.
 ```
 
 <details>
 <summary>What your agent will run</summary>
-
-**ChatGPT / Codex** (the ChatGPT desktop app shares Codex's configuration; restart the app afterwards)
-
-```bash
-codex plugin marketplace add https://github.com/topviewai/topview-3d-builder.git --ref main
-codex plugin add topview-3d-builder@topview-3d-builder
-```
-
-**Cursor** (restart Cursor afterwards)
-
-```bash
-git clone https://github.com/topviewai/topview-3d-builder.git ~/.cursor/plugins/local/topview-3d-builder
-```
 
 **Claude Code** (restart Claude Code afterwards)
 
@@ -63,7 +56,13 @@ claude plugin marketplace add https://github.com/topviewai/topview-3d-builder.gi
 claude plugin install topview-3d-builder@topview-3d-builder
 ```
 
-**Any other agent with skills support**
+**Cursor** (restart Cursor afterwards)
+
+```bash
+git clone https://github.com/topviewai/topview-3d-builder.git ~/.cursor/plugins/local/topview-3d-builder
+```
+
+**Any agent with skills support, including Qoder**
 
 ```bash
 npx skills add https://github.com/topviewai/topview-3d-builder.git
