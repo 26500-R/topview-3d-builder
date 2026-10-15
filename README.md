@@ -2,7 +2,7 @@
   <img src="topview-3d-builder.svg" alt="Topview 3D Builder" width="360" />
 </p>
 
-<p align="center"><b>Stop prompting. Start directing.</b></p>
+<p align="center"><b>Let AI build your 3D scenes</b></p>
 
 <p align="center">
   From an idea, to a 3D scene built by your agent, to a real animated video. Free, runs locally, no sign-up.
@@ -218,7 +218,7 @@ Built-in assets are made by Topview and licensed under CC BY 4.0.
 
 ## Who it's for
 
-- **AI short-drama and short-video creators.** Keep character positions consistent across shots and get more usable footage per generation.
+- **AI film and TV creators.** Keep character positions consistent across shots and get more usable footage per generation.
 - **Ad, brand and e-commerce content teams.** Agree on staging and camera work before you spend generation credits, and keep people and products in a stable relationship across shots.
 
 Directors, storyboard artists and anyone previsualizing a scene can use it too.
