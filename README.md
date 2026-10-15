@@ -242,13 +242,16 @@ Yes. It covers the whole path from an idea, to a 3D scene, to a real animated vi
 | Opus 5.5 | ⭐️⭐️⭐️ | Strong aesthetics, but expensive. |
 | Astra | ⭐️⭐️⭐️ | Strong 3D results and fast generation, but the most expensive. |
 
+## Tutorial
+
+[Build scenes, stage action and move the camera](https://www.topview.ai/academy/spatial-control#3-1-3d-builder-build-scenes-stage-action-and-move-the-camera)
+
 ## Learn more and join in
 
 | | |
 | --- | --- |
 | 🌐 **Topview.ai** | [www.topview.ai](https://www.topview.ai) |
 | 🎬 **3D Builder home** | [www.topview.ai/3d-builder](https://www.topview.ai/3d-builder) |
-| 🎓 **3D Builder tutorial** | [Build scenes, stage action and move the camera](https://www.topview.ai/academy/spatial-control#3-1-3d-builder-build-scenes-stage-action-and-move-the-camera) |
 | 🛠 **CLI reference** | [CLI and project format](https://github.com/topviewai/topview-3d-builder/blob/main/docs/topview-3d-cli.md) |
 | 🐞 **Feedback and bugs** | [GitHub Issues](https://github.com/topviewai/topview-3d-builder/issues) |
 
