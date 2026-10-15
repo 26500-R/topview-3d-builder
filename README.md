@@ -24,7 +24,7 @@
   <a href="https://github.com/topviewai/topview-3d-builder/issues">Issues</a>
 </p>
 
-https://github.com/user-attachments/assets/0abab696-3d30-4b5e-9187-6918f5d433e9
+https://github.com/user-attachments/assets/ae8923ce-e03e-473c-8e75-941bcb945f9c
 
 <p align="center"><sub>Build the scene, place the cameras, plan the camera move in Studio, then get the shot.</sub></p>
 
