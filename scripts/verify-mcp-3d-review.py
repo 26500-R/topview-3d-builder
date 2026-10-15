@@ -35,7 +35,7 @@ class Client:
         self.client = client
         self.headers = {'Authorization': 'Bearer ' + token, 'Accept': 'application/json, text/event-stream',
                         'MCP-Protocol-Version': version, 'X-Topview-Plugin-Client': client,
-                        'X-Topview-Plugin-Version': '0.1.6'}
+                        'X-Topview-Plugin-Version': '0.1.7'}
         self.meta = {'io.modelcontextprotocol/protocolVersion': version,
                      'io.modelcontextprotocol/clientCapabilities': {},
                      'io.modelcontextprotocol/clientInfo': {'name': client, 'version': '3d-review'}}
