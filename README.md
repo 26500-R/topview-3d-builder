@@ -225,6 +225,14 @@ No. Every project stays in a `.topview-3d/` folder on your machine.
 **Can it generate video?**
 Yes. It covers the whole path from an idea, to a 3D scene, to a real animated video: you lock the staging first, then generate the video from that 3D scene.
 
+## Recommended models
+
+| Model | Rating | Why |
+| --- | --- | --- |
+| Qwen 3.8 Flash | ⭐️⭐️⭐️⭐️⭐️ | Good results at a very low price. The same task costs about 1/150 of Astra, so it has the best overall value. |
+| Opus 5.5 | ⭐️⭐️⭐️ | Strong aesthetics, but expensive. |
+| Astra | ⭐️⭐️⭐️ | Strong 3D results and fast generation, but the most expensive. |
+
 ## Learn more and join in
 
 | | |
