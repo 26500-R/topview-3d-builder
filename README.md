@@ -30,7 +30,7 @@ https://github.com/user-attachments/assets/ae8923ce-e03e-473c-8e75-941bcb945f9c
 
 ## Quick Start
 
-**Recommended model: Qwen 3.8 Flash.** It costs about 1/140 of GPT 6 Astra and reaches a similar result. We recommend using it.
+**Recommended model: Qwen 3.8 Flash.** It costs about 1/150 of GPT 6 Astra and reaches a similar result. We recommend using it.
 
 Works with **ChatGPT / Codex**, **Qoder**, **Claude Code**, **Cursor** and any agent with skills support. You need Python 3.11+, Node.js 20.6+, and either [uv](https://docs.astral.sh/uv/) or pipx.
 
