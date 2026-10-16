@@ -39,7 +39,7 @@
     "privacyPolicyURL": "https://www.topview.ai/privacy-policy",
     "termsOfServiceURL": "https://www.topview.ai/terms",
     "defaultPrompt": [
-      "A person by a sports car in a showroom. One 10-second shot: low by the front wheel, to the person's face, then rising and orbiting to reveal the car from above.7s",
+      "Person by a showroom sports car. One 10-second shot: low front wheel, face, then rise and orbit above the car.7s",
       "Rooftop runner front-flips across a gap and keeps running; camera tracks from behind.8s",
       "Rider on horseback in city traffic nears a red light; high rear shot, then cut to horse's POV at the crosswalk.10s"
     ],
