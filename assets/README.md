@@ -7,7 +7,7 @@
 | `interface.logo` | `logo.png` | Plugin directory listing and detail page |
 | `interface.composerIcon` | `icon.png` | Small icon in the composer |
 
-Both are currently the same 512×512 Scene3D symbol. `.cursor-plugin/plugin.json` also uses
+Both use the same user-provided 1024×1024 purple 3D scene logo. `.cursor-plugin/plugin.json` also uses
 `logo.png`.
 
 Requirements, enforced by `node scripts/package-codex-plugin.mjs`:
@@ -17,5 +17,5 @@ Requirements, enforced by `node scripts/package-codex-plugin.mjs`:
 - committed to git (the archive is built from `HEAD`), not a symlink.
 
 When a file is missing, not a PNG, not square or out of range, the packaging script names the
-field, the file and the rule, and writes no archive. `brandColor` in the manifest (`#3341FF`) is
-the dominant blue sampled from the symbol.
+field, the file and the rule, and writes no archive. `brandColor` in the manifest (`#3341FF`) retains
+the existing UI accent color.
