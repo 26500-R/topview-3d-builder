@@ -459,7 +459,7 @@ export class Stage implements DirectorEngine, PathViewHost {
     for (const [id, ch] of this.characters) if (ch.root.visible) map.set(id, ch.root)
     for (const [id, prop] of this.props) if (prop.visible) map.set(id, prop)
     for (const [id, prim] of this.primitives) {
-      if (prim.visible && !this.nodeById.get(id)?.parentId) map.set(id, prim)
+      if (prim.visible) map.set(id, prim)
     }
     for (const [id, cam] of this.cameras) {
       if (cam.gizmo.group.visible) map.set(id, cam.gizmo.group)

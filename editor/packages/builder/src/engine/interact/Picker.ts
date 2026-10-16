@@ -23,10 +23,12 @@ export class Picker {
 
   pickNodeHit(graph: StageGraph, ndcX: number, ndcY: number): { id: string; dist: number } | null {
     this.raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), this.camera)
+    // 分组自己没有网格，可见的是挂在它下面的图元。父节点只表示编组，
+    // 点中的仍是这一块本身；滤掉 parentId 会让 agent 编进组里的模型点不中。
     const targets: [string, THREE.Object3D][] = [
       ...[...graph.characters.entries()].map(([id, ch]) => [id, ch.root] as [string, THREE.Object3D]),
       ...[...graph.props.entries()],
-      ...[...graph.primitives.entries()].filter(([id]) => !graph.nodeById.get(id)?.parentId),
+      ...graph.primitives.entries(),
     ]
     let best: { id: string; dist: number } | null = null
     for (const [id, obj] of targets) {
